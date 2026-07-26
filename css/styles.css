@@ -154,14 +154,6 @@ header {
   margin-top: 10px;
 }
 
-.assist-label {
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--text-dim);
-}
-
 #assists button {
   display: flex;
   align-items: center;
@@ -211,6 +203,39 @@ header {
 }
 
 #assists button:disabled .pill { background: rgba(0, 0, 0, 0.2); }
+
+/* burger */
+
+#assists #menuBtn {
+  padding: 0;
+  width: 38px;
+  height: 34px;
+  justify-content: center;
+  background: var(--surface-strong);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+.burger,
+.burger::before,
+.burger::after {
+  display: block;
+  width: 15px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--text);
+}
+
+.burger { position: relative; }
+
+.burger::before,
+.burger::after {
+  content: "";
+  position: absolute;
+  left: 0;
+}
+
+.burger::before { top: -5px; }
+.burger::after  { top: 5px; }
 
 /* combo badge floats over the board */
 
@@ -635,6 +660,289 @@ header {
 
 .ghost-btn:disabled { display: none; }
 
+/* ---------- game-over extras ---------- */
+
+#overlay .rank {
+  margin-top: 10px;
+  color: var(--gold);
+  font-weight: 700;
+}
+
+#overlayNameForm,
+#nameForm {
+  display: flex;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+#overlayNameForm input,
+#nameForm input {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 14px;
+  border: none;
+  border-radius: 100px;
+  background: rgba(255, 255, 255, 0.1);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.16);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 15px;
+  user-select: text;
+}
+
+#overlayNameForm input::placeholder,
+#nameForm input::placeholder { color: rgba(255, 255, 255, 0.35); }
+
+#overlayNameForm button,
+#nameForm button {
+  padding: 10px 18px;
+  border: none;
+  border-radius: 100px;
+  background: #3d7bfa;
+  color: #fff;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+#overlayNameForm { width: min(320px, 80vw); }
+
+/* ---------- burger menu ---------- */
+
+#menu {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: none;
+}
+
+#menu.show { display: block; }
+
+#menuBackdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  animation: fadeIn 0.2s ease-out;
+}
+
+#menuPanel {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(400px, 90vw);
+  padding: max(18px, env(safe-area-inset-top)) 18px max(18px, env(safe-area-inset-bottom));
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  background: #161a30;
+  box-shadow: -12px 0 40px rgba(0, 0, 0, 0.5);
+  animation: slideIn 0.24s cubic-bezier(0.2, 0.8, 0.3, 1);
+}
+
+@keyframes slideIn {
+  from { transform: translateX(100%); }
+  to   { transform: translateX(0); }
+}
+
+.menu-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.menu-head h2 { margin: 0; font-size: 20px; color: var(--text); }
+
+#menuClose {
+  width: 34px;
+  height: 34px;
+  border: none;
+  border-radius: 50%;
+  background: var(--surface-strong);
+  color: var(--text);
+  font-size: 15px;
+  font-family: inherit;
+}
+
+#menuPanel section {
+  padding: 16px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+#menuPanel h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 10px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+#menuPanel h3 .tag {
+  padding: 2px 8px;
+  border-radius: 100px;
+  background: var(--surface-strong);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  color: var(--gold);
+}
+
+#menuPanel .hint {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+#menuPanel .hint.quiet { opacity: 0.65; font-size: 11px; }
+
+/* leaderboard table */
+
+#scoreList {
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+#scoreList li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  font-size: 14px;
+  color: var(--text);
+}
+
+#scoreList li:nth-child(odd) { background: rgba(255, 255, 255, 0.04); }
+
+#scoreList li.me {
+  background: rgba(120, 190, 255, 0.16);
+  box-shadow: inset 0 0 0 1px rgba(120, 190, 255, 0.5);
+}
+
+#scoreList li.empty {
+  display: block;
+  background: none;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+#scoreList .rank {
+  width: 20px;
+  font-weight: 800;
+  color: var(--text-dim);
+}
+
+#scoreList li:first-child .rank { color: var(--gold); }
+
+#scoreList .who {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+#scoreList .lvl { font-size: 11px; color: var(--text-dim); }
+#scoreList .pts { font-weight: 800; color: var(--gold); }
+
+/* this-game stats */
+
+.stat-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 0;
+  font-size: 14px;
+  color: var(--text-dim);
+}
+
+.stat-row strong { color: var(--text); }
+
+/* piece odds */
+
+.odds-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 3px 0;
+}
+
+.odds-thumb {
+  display: grid;
+  gap: 1px;
+  width: 32px;
+  flex: 0 0 32px;
+  justify-content: start;
+}
+
+.odds-thumb i {
+  width: 5px;
+  height: 5px;
+  border-radius: 1px;
+  background: transparent;
+}
+
+.odds-thumb i.on { background: #7fb8ff; }
+
+.odds-bar {
+  flex: 1;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+}
+
+.odds-bar div {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #4da6f2, #ffd23f);
+}
+
+.odds-pct {
+  width: 40px;
+  text-align: right;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-dim);
+}
+
+/* how to play */
+
+.how {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 13px;
+  line-height: 1.55;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.how li { margin-bottom: 6px; }
+.how strong { color: var(--text); }
+
+.menu-foot {
+  margin: 18px 0 0;
+  text-align: center;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+/* the always-visible version stamp */
+
+#version {
+  position: fixed;
+  right: max(8px, env(safe-area-inset-right));
+  bottom: max(4px, env(safe-area-inset-bottom));
+  z-index: 5;
+  font-size: 10px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.22);
+  pointer-events: none;
+}
+
 /* ---------- accessibility ---------- */
 
 @media (prefers-reduced-motion: reduce) {
@@ -658,6 +966,9 @@ header {
   #board.tap-reject { animation: none; }
 
   #levelBar { transition: none; }
+
+  #menuPanel,
+  #menuBackdrop { animation: none; }
 
   .cell.will-clear    { box-shadow: inset 0 0 0 3px rgba(255, 220, 90, 0.95); }
   .cell.hint-cell     { box-shadow: inset 0 0 0 3px rgba(255, 210, 63, 1); }

@@ -14,6 +14,7 @@ import { el, buildBoardCells } from "./dom.js";
 import * as render from "./render.js";
 import * as fx from "./effects.js";
 import { PlacementController } from "./input.js";
+import { attachMenu, recordResult, renderGameOverName } from "./menu.js";
 
 const game = new Game();
 
@@ -104,6 +105,9 @@ game.on("undo", () => {
 });
 
 game.on("gameover", (result) => {
+  // record first, so the overlay can show the rank straight away
+  recordResult();
+  renderGameOverName();
   // wait for any clear animation to finish before covering the board
   setTimeout(() => render.showGameOver(result), 700);
 });
@@ -132,6 +136,8 @@ window.addEventListener("resize", () => {
 // ---------- boot ----------
 
 buildBoardCells();
+attachMenu(game);
+renderGameOverName();
 render.renderBoard(game.board);
 render.renderScore(game.score);
 render.renderBest(game.best);

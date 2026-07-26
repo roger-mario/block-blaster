@@ -76,6 +76,17 @@ export function gridlock(game, holes = GRIDLOCK_HOLES) {
   return game;
 }
 
+export function emptyBoard() {
+  return Array.from({ length: BOARD_SIZE }, () => Array(BOARD_SIZE).fill(null));
+}
+
+/** A board from an ASCII drawing, without needing a Game. */
+export function boardFrom(rows) {
+  return Array.from({ length: BOARD_SIZE }, (_, r) =>
+    Array.from({ length: BOARD_SIZE }, (_, c) => (rows[r]?.[c] === "X" ? "#abc" : null))
+  );
+}
+
 export function countFilled(board) {
   return board.flat().filter(Boolean).length;
 }

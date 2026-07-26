@@ -21,7 +21,7 @@
  */
 
 import { BOARD_SIZE, TRAY_SLOTS, ASSISTS_PER_GAME, STORAGE_KEY, FX } from "./config.js";
-import { randomTray } from "./pieces.js";
+import { dealTray } from "./dealer.js";
 import {
   levelForLines,
   levelConfig,
@@ -54,6 +54,9 @@ export class Game extends Emitter {
     this.assistsLeft = ASSISTS_PER_GAME;
     this.over = false;
     this._undo = null;
+
+    // shown in the menu; purely informational
+    this.stats = { piecesPlaced: 0, bestCombo: 0, clears: 0, perfectClears: 0 };
 
     this._refillTray();
 
@@ -198,6 +201,7 @@ export class Game extends Emitter {
 
     this.tray[slot] = null;
     this.trayPlacements++;
+    this.stats.piecesPlaced++;
 
     const points = placementPoints(cells.length, this.level);
     this._addScore(points);
@@ -253,6 +257,8 @@ export class Game extends Emitter {
 
     this.combo++;
     this.trayClears++;
+    this.stats.clears++;
+    this.stats.bestCombo = Math.max(this.stats.bestCombo, this.combo);
 
     const points = clearPoints(lines, this.combo, this.level);
     this._addScore(points);
@@ -269,6 +275,7 @@ export class Game extends Emitter {
     });
     for (const bonus of bonuses) {
       this._addScore(bonus.points);
+      if (bonus.type === "perfect") this.stats.perfectClears++;
       this.emit("bonus", bonus);
     }
 
@@ -293,13 +300,17 @@ export class Game extends Emitter {
     return this.board.every((row) => row.every((cell) => !cell));
   }
 
+  /**
+   * The dealer reads the board, not just the level — see dealer.js. That's
+   * what stops a tray of pieces that fit nowhere, and what makes a nearly
+   * full board hand you a way out.
+   */
   _refillTray() {
-    const cfg = levelConfig(this.level);
-    const accepts = cfg.guaranteeFit
-      ? (tray) => tray.some((piece) => this.anyPlacementExists(piece))
-      : null;
-
-    this.tray = randomTray(TRAY_SLOTS, { level: this.level, accepts, rng: this.rng });
+    this.tray = dealTray(TRAY_SLOTS, {
+      level: this.level,
+      board: this.board,
+      rng: this.rng,
+    });
     this.trayPlacements = 0;
     this.trayClears = 0;
   }
@@ -372,6 +383,7 @@ export class Game extends Emitter {
       trayPlacements: this.trayPlacements,
       trayClears: this.trayClears,
       over: this.over,
+      stats: { ...this.stats },
     };
   }
 
@@ -386,6 +398,7 @@ export class Game extends Emitter {
     this.trayPlacements = state.trayPlacements;
     this.trayClears = state.trayClears;
     this.over = state.over;
+    this.stats = { ...state.stats };
     write(STORAGE_KEY, this.best);
   }
 }

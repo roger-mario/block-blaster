@@ -42,10 +42,12 @@
       <span class="glyph">💡</span>Hint<span class="pill" id="hintCount">3</span>
     </button>
 
-    <span class="assist-label">assists</span>
-
     <button id="undoBtn" type="button" aria-label="Spend an assist to undo the last move">
       <span class="glyph">↩</span>Undo<span class="pill" id="undoCount">3</span>
+    </button>
+
+    <button id="menuBtn" type="button" aria-label="Open the menu">
+      <span class="burger" aria-hidden="true"></span>
     </button>
   </div>
 
@@ -62,14 +64,76 @@
 
 <div id="dragLayer"></div>
 
+<!-- ---------- game over ---------- -->
 <div id="overlay">
   <h1>Game Over</h1>
   <p id="finalScore">Score: 0</p>
   <p id="finalLevel">Reached level 1</p>
   <p class="new-best" id="newBest" style="display: none">New best! 🎉</p>
+  <p class="rank" id="overlayRank" style="display: none"></p>
+
+  <form id="overlayNameForm" autocomplete="off">
+    <input id="overlayNameInput" type="text" placeholder="Your name" maxlength="14"
+           aria-label="Name for the leaderboard" />
+    <button type="submit">Save</button>
+  </form>
+
   <button id="overlayUndoBtn" type="button" class="ghost-btn">↩ Undo last move</button>
   <button id="restartBtn" type="button">Play Again</button>
 </div>
+
+<!-- ---------- burger menu ---------- -->
+<div id="menu">
+  <div id="menuBackdrop"></div>
+
+  <div id="menuPanel" role="dialog" aria-label="Menu">
+    <div class="menu-head">
+      <h2>Block Drop</h2>
+      <button id="menuClose" type="button" aria-label="Close the menu">✕</button>
+    </div>
+
+    <section>
+      <h3>Leaderboard</h3>
+      <form id="nameForm" autocomplete="off">
+        <input id="nameInput" type="text" placeholder="Your name" maxlength="14"
+               aria-label="Name for the leaderboard" />
+        <button type="submit">Save</button>
+      </form>
+      <p class="hint" id="nameStatus">Add a name to join the board</p>
+      <ol id="scoreList"></ol>
+      <p class="hint quiet">Scores are kept on this device.</p>
+    </section>
+
+    <section>
+      <h3>This game</h3>
+      <div id="statList"></div>
+    </section>
+
+    <section>
+      <h3>Pieces right now <span class="tag" id="oddsLevel">Level 1</span></h3>
+      <p class="hint">How likely each shape is to be dealt at your level.</p>
+      <div id="oddsList"></div>
+    </section>
+
+    <section>
+      <h3>How to play</h3>
+      <ul class="how">
+        <li><strong>Drag</strong> a piece onto the board — or <strong>tap</strong> it,
+            then tap where you want it.</li>
+        <li>Fill a whole row or column to clear it. Clear several at once for
+            far more points.</li>
+        <li>Clearing on consecutive moves builds a <strong>combo</strong>.</li>
+        <li>You get <strong>3 assists</strong> a game. Spend them on hints, on
+            undo, or a mix.</li>
+        <li>Undo goes back <strong>one</strong> move — even from Game Over.</li>
+      </ul>
+    </section>
+
+    <p class="menu-foot" id="menuVersion">Block Drop</p>
+  </div>
+</div>
+
+<div id="version"></div>
 
 <script type="module" src="js/main.js"></script>
 </body>

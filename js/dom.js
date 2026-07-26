@@ -30,6 +30,25 @@ export const el = {
   newBest: document.getElementById("newBest"),
   restartBtn: document.getElementById("restartBtn"),
   overlayUndoBtn: document.getElementById("overlayUndoBtn"),
+  overlayRank: document.getElementById("overlayRank"),
+  overlayNameForm: document.getElementById("overlayNameForm"),
+  overlayNameInput: document.getElementById("overlayNameInput"),
+
+  // menu
+  menuBtn: document.getElementById("menuBtn"),
+  menu: document.getElementById("menu"),
+  menuPanel: document.getElementById("menuPanel"),
+  menuBackdrop: document.getElementById("menuBackdrop"),
+  menuClose: document.getElementById("menuClose"),
+  menuVersion: document.getElementById("menuVersion"),
+  version: document.getElementById("version"),
+  nameForm: document.getElementById("nameForm"),
+  nameInput: document.getElementById("nameInput"),
+  nameStatus: document.getElementById("nameStatus"),
+  scoreList: document.getElementById("scoreList"),
+  statList: document.getElementById("statList"),
+  oddsList: document.getElementById("oddsList"),
+  oddsLevel: document.getElementById("oddsLevel"),
 };
 
 export const CELL_INSET = 1.5; // must match the .cell margin in styles.css

@@ -1,8 +1,15 @@
 # Block Drop
 
+**v0.0.3**
+
 A block-puzzle game that runs in the browser, installs to your iPhone home
 screen, and costs nothing to host. No Xcode, no Apple developer fee, no
 build step.
+
+The version is stamped in the bottom-right corner of the page and at the
+foot of the menu. It lives in one place — `APP_VERSION` in
+`js/config.js` — so bump that and the service-worker cache name when you
+ship.
 
 ---
 
@@ -63,21 +70,24 @@ Everything is plain JavaScript modules — no framework, no bundler, no
 `npm install` needed to play. Each file has one job:
 
 ```
-index.html          structure only (~75 lines)
+index.html          structure only
 css/styles.css      all styling and keyframes
 js/
   config.js         ← every tunable number lives here
   difficulty.js     the level 1→10 ladder (pure maths)
   scoring.js        every point the game awards (pure maths)
-  pieces.js         the shapes, and which levels may use them
+  pieces.js         the shapes and their appearance curves
+  dealer.js         picks your next three, reading the board
   emitter.js        tiny publish/subscribe helper
   storage.js        localStorage that can't throw
+  leaderboard.js    names and scores, kept on this device
   game.js           all the rules. Never touches the DOM.
   solver.js         works out a good move for the Hint button
   dom.js            element references and pixel geometry
   render.js         draws game state onto the page
   effects.js        animations, particles, screen shake
   input.js          drag *and* tap-to-place
+  menu.js           the burger menu panel
   main.js           wiring — connects game events to visuals
 tests/              node --test suite, no dependencies
 service-worker.js   offline support + cache busting
@@ -142,30 +152,78 @@ Your level is driven by **total lines cleared**, not score — otherwise the
 later multipliers would rocket you up the ladder without you playing any
 better. Reaching a level changes two things at once:
 
-| Level | Lines to reach | Hardest shape allowed | Points × |
+| Level | Lines to reach | New arrivals | Points × |
 |---|---|---|---|
-| 1 | 0 | dominoes, corners | 0.60 |
-| 2 | 4 | + 2×2 square | 0.80 |
-| 3 | 10 | + 4-bars | 1.00 |
-| 4 | 18 | + T-pieces | 1.25 |
-| 5 | 28 | + 2×3 rectangles | 1.50 |
-| 6 | 40 | + 5-bars | 1.80 |
-| 7 | 54 | + big L-pieces | 2.20 |
-| 8 | 70 | + S and Z pieces | 2.60 |
-| 9 | 88 | everything | 3.00 |
-| 10 | 108 | everything, weighted hard | 3.50 |
-
-Every shape in `pieces.js` carries a `difficulty` from 1 to 10, and a
-level only ever draws from the shapes at or below its ceiling. On top of
-that, `hardBias` tilts the draw: at level 1 every allowed shape is equally
-likely, at level 10 the awkward ones come up far more often.
-
-Levels 1–3 also have a **beginner safety net** (`guaranteeFit`): the game
-re-deals the tray until at least one piece actually fits the board, so a
-new player never gets an instant unwinnable hand.
+| 1 | 0 | dot, dominoes, triples, corners | 0.60 |
+| 2 | 4 | 2×2 square | 0.80 |
+| 3 | 10 | 4-bars | 1.00 |
+| 4 | 18 | **5-bars**, T-pieces | 1.25 |
+| 5 | 28 | 2×3 rectangles | 1.50 |
+| 6 | 40 | big L-pieces | 1.80 |
+| 7 | 54 | S, Z and the 3×3 block | 2.20 |
+| 8 | 70 | — | 2.60 |
+| 9 | 88 | — | 3.00 |
+| 10 | 108 | — | 3.50 |
 
 The header shows the level, the current multiplier and a bar filling
 toward the next level.
+
+#### Each shape has its own curve
+
+A single "hardest shape allowed" number per level only ever grows the
+grab-bag — you keep drawing single squares at level 10, and the pieces
+that are actually fun stay buried. So every shape in `pieces.js` now owns
+an appearance curve instead:
+
+| Field | Meaning |
+|---|---|
+| `from` | first level it can appear at all |
+| `peak` | level where it reaches full weight (it eases in before that) |
+| `fade` | level it starts becoming rarer again |
+| `floor` | how rare it gets once faded — never zero |
+| `weight` | its pull relative to every other shape |
+
+What that buys, measured over 20,000 draws per level in the tests:
+
+- **Dots are no longer a flood.** Under 12% of level-1 draws, and they
+  never dominate — but they never disappear either, because a single
+  square is often the only way out of a tight board.
+- **Dominoes and triples fade.** Everywhere at level 1, down past a
+  quarter of their peak by level 10.
+- **The 5-bars arrive at level 4 and stay generous** (`weight: 1.45`, the
+  highest in the game). Half a row in one move is the most satisfying
+  piece in the game and it was far too rare before.
+- **S, Z and the 3×3 stay rare forever** — together under 20% of level-10
+  draws. They're the pieces that wreck boards; they should be a spike in
+  difficulty, not the background.
+- Average piece size climbs smoothly from **2.4 cells at level 1 to 4.2 at
+  level 10**.
+
+The menu shows this live: **Pieces right now** draws every shape unlocked
+at your level with its exact percentage, straight from the same weights
+the dealer uses.
+
+#### The dealer reads your board
+
+`dealer.js` doesn't just roll the level's dice — it looks at the board you
+actually have:
+
+- **Nothing dead.** A tray where no piece fits anywhere isn't difficulty,
+  it's a coin flip you lost. If the draw produces one, a slot is swapped
+  for something playable. Over 39,000 dealt trays in simulation: zero
+  dead hands.
+- **A way to clean up.** If the roll says so and nothing you've been dealt
+  can finish a line, a slot is swapped for one that can. The odds start
+  at the level's `clearChance` (90% at level 1, 30% at level 10) and are
+  pushed up by how full the board is — so at real pressure even level 10
+  nearly always offers an out.
+- **Variety.** Repeats within one tray are damped, so three of a kind is
+  under 2% of deals.
+
+This deliberately doesn't make the game *easier*, only fairer. Auto-playing
+300 games with the solver, turning the rescue off entirely changes the
+median game from 338 moves to 311 — skill still decides everything. What
+it removes is the death you had no move against.
 
 ### The point system
 
@@ -240,6 +298,40 @@ subtler than a line clear, so clears still feel like the big moment.
 6. Screen shake — gentle on a double, harder on a triple+
 7. A badge announces "Double!", "COMBO x3", "PERFECT CLEAR!"…
 
+### The menu
+
+The ☰ button opens a panel with four sections:
+
+- **Leaderboard** — the top 10 on this device, your own row highlighted
+- **This game** — level, score, lines, pieces placed, best combo, perfect
+  clears, assists left
+- **Pieces right now** — every shape unlocked at your level with its exact
+  chance of being dealt
+- **How to play** — including tap-to-place, which is otherwise easy to miss
+
+Escape, the ✕, or a tap on the backdrop closes it.
+
+### Leaderboard
+
+Type a name once — in the menu, or on the Game Over screen — and it's
+remembered from then on. Every finished game is recorded silently under
+that name and the Game Over screen tells you where you landed. If you
+haven't set a name, nothing is ever recorded and nothing ever nags you:
+the field simply sits on the Game Over screen until you feel like using
+it.
+
+Only your **personal best** is kept, so one person can't fill the whole
+table with their last ten games. Names are matched case-insensitively.
+
+**Scores are stored on the device, not shared between devices or
+players.** The game is a static site with no backend, so there's nowhere
+to put a shared table without standing up a database and wiring
+credentials into the deploy. Everything a remote leaderboard would need
+sits behind the four functions in `js/leaderboard.js` — `getScores`,
+`submitScore`, `getPlayer`, `setPlayer` — so making it global later means
+pointing those at `fetch("/api/scores")` (Vercel serverless + a KV store)
+and changing nothing else.
+
 ---
 
 ## Tuning
@@ -248,19 +340,26 @@ Almost everything is in `js/config.js`:
 
 | Setting | Effect |
 |---|---|
+| `APP_VERSION` | the version shown on the page and in the menu |
 | `BOARD_SIZE` | grid dimensions (8 = classic) |
 | `ASSISTS_PER_GAME` | hints + undos you get per game |
-| `LEVELS` | the whole difficulty ladder, one row per level |
+| `LEVELS` | the difficulty ladder — thresholds, multipliers, `clearChance` |
 | `COLORS` | the block palette |
 | `SCORING` | per cell, per line, combo, and all four bonuses |
+| `DEALER.rescuePower` | how fast a filling board earns you a way out |
+| `DEALER.fitBoost` | preference for shapes that fit the board right now |
+| `DEALER.crowdPenalty` | how hard duplicate shapes in one tray are damped |
+| `LEADERBOARD_SIZE` | how many scores the table keeps |
 | `FX.tapSlop` | how far a press may move and still count as a tap |
 | `FX.snapRadius` | how forgiving tap-to-place is |
 | `FX.shardsPerCell` | confetti density — lower if it feels sluggish |
 | `FX.dragLift` | how far the piece floats above your finger |
 | `TIMING.badgeGap` | pause between stacked bonus badges |
 
-Shape difficulty ratings live in `js/pieces.js` — move a shape's number up
-or down to change which levels it appears at.
+**How often each shape appears is set in `js/pieces.js`**, on the shape
+itself. To make 5-bars even more common, raise their `weight`; to bring
+the 3×3 in earlier, lower its `from`. Open the menu afterwards and the
+"Pieces right now" table shows the result immediately.
 
 Visual styling lives in `css/styles.css`, grouped by area with comments.
 
@@ -274,6 +373,7 @@ browser console (or Safari's Web Inspector connected to your phone):
 ```js
 blockdrop.game.board                         // inspect the grid
 blockdrop.game.level                         // current level
+blockdrop.game.stats                         // pieces placed, best combo…
 blockdrop.game.assistsLeft                   // hints/undos remaining
 blockdrop.input.selectedSlot                 // which piece is picked up
 blockdrop.findBestPlacement(blockdrop.game)  // ask the solver directly
@@ -298,5 +398,9 @@ information conveyed by the effects stay identical.
 - **Themes** — the CSS variables at the top of `styles.css` are ready
 - **Daily challenge** — the `Game` constructor already takes an injectable
   `rng`, so seed it from the date
-- **Online leaderboard** — needs a small backend; Vercel has free
-  serverless functions
+- **Shared leaderboard** — point the four functions in `leaderboard.js` at
+  a Vercel serverless route backed by a KV store; the UI needs no changes
+- **Missing icons** — `icon-192.png` and `icon-512.png` are referenced by
+  `manifest.json` but aren't in the repo, so the home-screen install has
+  no icon. The service worker no longer chokes on them, but they're still
+  worth adding.

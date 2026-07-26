@@ -5,6 +5,9 @@
  * the only file you need to touch.
  */
 
+/** Shown in the menu. Bump it whenever you ship. */
+export const APP_VERSION = "0.0.3";
+
 export const BOARD_SIZE = 8;
 export const TRAY_SLOTS = 3;
 
@@ -40,28 +43,49 @@ export const SCORING = {
 /**
  * Difficulty ladder, level 1 → 10.
  *
- *   linesToReach     total lines cleared needed to arrive at this level
- *   maxPieceDifficulty  hardest shape that may appear (see pieces.js)
- *   hardBias         0 = all allowed shapes equally likely,
- *                    higher = the awkward ones show up more often
- *   multiplier       every point you earn is scaled by this
- *   guaranteeFit     regenerate the tray until at least one piece fits
+ *   linesToReach  total lines cleared needed to arrive at this level
+ *   multiplier    every point you earn is scaled by this
+ *   clearChance   how often the tray is guaranteed to contain a piece that
+ *                 can complete a line right now (before board pressure is
+ *                 taken into account — see DEALER)
+ *   guaranteeFit  never deal a tray where nothing fits at all
  *
- * Early levels hand you friendly little shapes and pay less; later levels
- * throw 3×3 blocks and S-pieces at you and pay a lot more.
+ * *Which* shapes turn up is no longer decided here — each shape owns its
+ * own appearance curve in pieces.js, so a shape can arrive at level 3,
+ * peak at level 5 and fade away again by level 9.
  */
 export const LEVELS = [
-  { level: 1,  linesToReach: 0,   maxPieceDifficulty: 2,  hardBias: 0.0, multiplier: 0.6, guaranteeFit: true },
-  { level: 2,  linesToReach: 4,   maxPieceDifficulty: 3,  hardBias: 0.1, multiplier: 0.8, guaranteeFit: true },
-  { level: 3,  linesToReach: 10,  maxPieceDifficulty: 4,  hardBias: 0.2, multiplier: 1.0, guaranteeFit: true },
-  { level: 4,  linesToReach: 18,  maxPieceDifficulty: 5,  hardBias: 0.3, multiplier: 1.25, guaranteeFit: false },
-  { level: 5,  linesToReach: 28,  maxPieceDifficulty: 6,  hardBias: 0.4, multiplier: 1.5, guaranteeFit: false },
-  { level: 6,  linesToReach: 40,  maxPieceDifficulty: 7,  hardBias: 0.5, multiplier: 1.8, guaranteeFit: false },
-  { level: 7,  linesToReach: 54,  maxPieceDifficulty: 8,  hardBias: 0.6, multiplier: 2.2, guaranteeFit: false },
-  { level: 8,  linesToReach: 70,  maxPieceDifficulty: 9,  hardBias: 0.75, multiplier: 2.6, guaranteeFit: false },
-  { level: 9,  linesToReach: 88,  maxPieceDifficulty: 10, hardBias: 0.9, multiplier: 3.0, guaranteeFit: false },
-  { level: 10, linesToReach: 108, maxPieceDifficulty: 10, hardBias: 1.2, multiplier: 3.5, guaranteeFit: false },
+  { level: 1,  linesToReach: 0,   multiplier: 0.6,  clearChance: 0.90, guaranteeFit: true },
+  { level: 2,  linesToReach: 4,   multiplier: 0.8,  clearChance: 0.85, guaranteeFit: true },
+  { level: 3,  linesToReach: 10,  multiplier: 1.0,  clearChance: 0.80, guaranteeFit: true },
+  { level: 4,  linesToReach: 18,  multiplier: 1.25, clearChance: 0.70, guaranteeFit: true },
+  { level: 5,  linesToReach: 28,  multiplier: 1.5,  clearChance: 0.62, guaranteeFit: true },
+  { level: 6,  linesToReach: 40,  multiplier: 1.8,  clearChance: 0.55, guaranteeFit: true },
+  { level: 7,  linesToReach: 54,  multiplier: 2.2,  clearChance: 0.48, guaranteeFit: true },
+  { level: 8,  linesToReach: 70,  multiplier: 2.6,  clearChance: 0.42, guaranteeFit: true },
+  { level: 9,  linesToReach: 88,  multiplier: 3.0,  clearChance: 0.36, guaranteeFit: true },
+  { level: 10, linesToReach: 108, multiplier: 3.5,  clearChance: 0.30, guaranteeFit: true },
 ];
+
+/**
+ * How the tray is dealt (see dealer.js).
+ *
+ * The dealer looks at the board you actually have, not just your level.
+ * Two knobs matter most:
+ *
+ *   rescuePower  how hard a filling board pushes the odds of a
+ *                line-clearing piece back up. At full pressure even
+ *                level 10 nearly always offers you a way out.
+ *   fitBoost     shapes that can be placed somewhere are preferred over
+ *                shapes that can't fit anywhere at all.
+ */
+export const DEALER = {
+  rescuePower: 1.5,     // exponent on board pressure; lower = kinder sooner
+  fitBoost: 6,          // × weight for a shape that fits the current board
+  clearBoost: 2.5,      // × weight again if it can finish a line right now
+  crowdPenalty: 0.55,   // × weight for repeating a shape already in the tray
+  maxDealAttempts: 12,
+};
 
 export const TIMING = {
   clearStagger: 24,   // ms between each block popping in a cleared line
@@ -98,3 +122,8 @@ export const BONUS_NAMES = {
 };
 
 export const STORAGE_KEY = "blockdrop-best";
+export const LEADERBOARD_KEY = "blockdrop-leaderboard";
+export const PLAYER_KEY = "blockdrop-player";
+
+/** How many entries the leaderboard keeps. */
+export const LEADERBOARD_SIZE = 10;

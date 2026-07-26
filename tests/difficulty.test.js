@@ -15,8 +15,9 @@ import {
   linesToNextLevel,
   multiplierFor,
 } from "../js/difficulty.js";
-import { SHAPES, shapePoolFor, pickShape, randomTray } from "../js/pieces.js";
-import { newGame, piece, setBoard, rowWithGap, seededRng, gridlock } from "./helpers.js";
+import { SHAPES, shapePoolFor, pickShape, shapeWeightAt } from "../js/pieces.js";
+import { dealTray } from "../js/dealer.js";
+import { newGame, piece, setBoard, rowWithGap, seededRng, gridlock, emptyBoard } from "./helpers.js";
 
 test("the ladder runs from 1 to 10", () => {
   assert.equal(MIN_LEVEL, 1);
@@ -30,8 +31,10 @@ test("each level is harder and pays better than the one before", () => {
     const cur = LEVELS[i];
     assert.ok(cur.linesToReach > prev.linesToReach, `level ${cur.level} needs more lines`);
     assert.ok(cur.multiplier > prev.multiplier, `level ${cur.level} pays more`);
-    assert.ok(cur.maxPieceDifficulty >= prev.maxPieceDifficulty, `level ${cur.level} allows harder shapes`);
-    assert.ok(cur.hardBias >= prev.hardBias, `level ${cur.level} leans harder`);
+    assert.ok(
+      cur.clearChance <= prev.clearChance,
+      `level ${cur.level} hands out fewer free rescues`
+    );
   }
 });
 
@@ -81,9 +84,10 @@ test("linesToNextLevel counts down and stops at the top", () => {
 test("level 1 only offers the friendliest shapes", () => {
   const pool = shapePoolFor(1);
   assert.ok(pool.length > 0);
-  assert.ok(pool.every((s) => s.difficulty <= levelConfig(1).maxPieceDifficulty));
+  assert.ok(pool.every((s) => s.from === 1), "everything at level 1 unlocks at level 1");
   assert.ok(!pool.some((s) => s.name === "square-3"), "no 3×3 block at level 1");
   assert.ok(!pool.some((s) => s.name === "ess"), "no S-piece at level 1");
+  assert.ok(!pool.some((s) => s.name === "penta-h"), "no 5-bar at level 1");
 });
 
 test("the shape pool only ever grows as levels go up", () => {
@@ -120,13 +124,13 @@ test("a level-1 tray never contains a shape that level bans", () => {
   const rng = seededRng(7);
   const allowed = new Set(shapePoolFor(1).map((s) => s.name));
   for (let i = 0; i < 200; i++) {
-    for (const p of randomTray(3, { level: 1, rng })) {
+    for (const p of dealTray(3, { level: 1, board: emptyBoard(), rng })) {
       assert.ok(allowed.has(p.name), `${p.name} should not appear at level 1`);
     }
   }
 });
 
-test("easy levels refuse to deal a tray where nothing fits", () => {
+test("the tray never leaves you with nothing that fits", () => {
   const game = newGame(3);
   assert.equal(levelConfig(1).guaranteeFit, true);
 
@@ -136,7 +140,7 @@ test("easy levels refuse to deal a tray where nothing fits", () => {
 
   assert.ok(
     game.tray.some((p) => game.anyPlacementExists(p)),
-    "the beginner safety net keeps at least one playable piece"
+    "the safety net keeps at least one playable piece"
   );
 });
 
