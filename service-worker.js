@@ -9,7 +9,7 @@
  * Bump CACHE_VERSION whenever you add or rename a file below.
  */
 
-const CACHE_VERSION = "blockdrop-v0.0.4";
+const CACHE_VERSION = "blockdrop-v0.1.0";
 
 const ASSETS = [
   "./",

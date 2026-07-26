@@ -5,7 +5,7 @@
  * game rules of its own.
  */
 
-import { BOARD_SIZE, FX, TIMING } from "./config.js";
+import { BOARD_SIZE, FX, TIMING, LIFELINES } from "./config.js";
 import { el, cellEls, cellSize } from "./dom.js";
 import { MAX_LEVEL } from "./difficulty.js";
 
@@ -52,8 +52,7 @@ function mark(cell, className) {
 }
 
 /**
- * Shows where the piece would land — used by both the drag and the
- * tap-to-place preview.
+ * Shows where the piece would land while you drag it.
  *
  * When the placement would complete lines, every cell in those lines
  * lights up so you can see the clear coming before you commit.
@@ -87,49 +86,102 @@ export function showPreview(preview, piece, origin) {
   el.board.classList.add("clear-imminent");
 }
 
-/** Brief red pulse when a tap lands somewhere the piece can't go. */
-let rejectTimer = null;
-export function flashInvalidDrop() {
-  el.board.classList.add("tap-reject");
-  clearTimeout(rejectTimer);
-  rejectTimer = setTimeout(() => el.board.classList.remove("tap-reject"), 260);
-}
+// ---------- lifelines ----------
 
-// ---------- hint ----------
+/**
+ * Builds the three lifeline buttons, in the toolbar and again on the
+ * Game Over screen — a wipe or a shuffle can pull you back out of a
+ * dead end, so they have to be reachable from there too.
+ *
+ * Buttons are never given the `disabled` attribute. A locked lifeline
+ * still has to be tappable, because tapping it is how you find out *why*
+ * it's locked: `onUse` gets the id either way and answers with a badge.
+ */
+export function mountLifelines(onUse) {
+  for (const bar of [el.lifelines, el.overlayLifelines]) {
+    bar.replaceChildren();
 
-let hintTimer = null;
+    for (const spec of LIFELINES) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "lifeline";
+      button.dataset.life = spec.id;
 
-export function showHint(hint, durationMs) {
-  clearHint();
+      const glyph = document.createElement("span");
+      glyph.className = "glyph";
+      glyph.textContent = spec.icon;
 
-  for (const [r, c] of hint.cells) {
-    cellEls[r][c].classList.add("hint-cell");
-  }
-  const slotEl = el.tray.children[hint.slot];
-  if (slotEl) slotEl.classList.add("hint-slot");
+      const tip = document.createElement("span");
+      tip.className = "tip";
+      const name = document.createElement("b");
+      name.textContent = spec.label;
+      const why = document.createElement("i");
+      why.textContent = spec.tip;
+      tip.append(name, why);
 
-  hintTimer = setTimeout(clearHint, durationMs);
-}
+      button.append(glyph, tip);
 
-export function clearHint() {
-  if (hintTimer) {
-    clearTimeout(hintTimer);
-    hintTimer = null;
-  }
-  for (let r = 0; r < BOARD_SIZE; r++) {
-    for (let c = 0; c < BOARD_SIZE; c++) {
-      cellEls[r][c].classList.remove("hint-cell");
+      // a tap fires the lifeline *and* shows its label, so the tooltip
+      // isn't hover-only trivia on a phone
+      button.addEventListener("pointerdown", () => peekTip(button));
+      button.addEventListener("click", () => onUse(spec.id));
+
+      bar.appendChild(button);
     }
   }
-  for (const slot of el.tray.children) slot.classList.remove("hint-slot");
+}
+
+let peekTimer = null;
+function peekTip(button) {
+  clearTimeout(peekTimer);
+  for (const other of document.querySelectorAll(".lifeline.peek")) {
+    other.classList.remove("peek");
+  }
+  button.classList.add("peek");
+  peekTimer = setTimeout(() => button.classList.remove("peek"), TIMING.tipDuration);
+}
+
+/** Paints every lifeline button from the game's own verdict. */
+export function renderLifelines(statuses) {
+  let anyAvailable = false;
+
+  for (const status of statuses) {
+    if (status.available) anyAvailable = true;
+
+    for (const button of document.querySelectorAll(`.lifeline[data-life="${status.id}"]`)) {
+      button.classList.toggle("used", status.used);
+      button.classList.toggle("locked", !status.available && !status.used);
+      // deliberately not `disabled` or `aria-disabled`: the button still
+      // does something when it's locked — it tells you why — and the
+      // reason is carried in the accessible name
+      button.setAttribute("aria-label", `${status.label} — ${status.reason}`);
+
+      const why = button.querySelector(".tip i");
+      if (why) why.textContent = status.reason;
+    }
+
+    // The Game Over row is an offer, not a status display: a lifeline you
+    // can't use there is just noise, so it isn't shown at all.
+    const rescueBtn = el.overlayLifelines.querySelector(`[data-life="${status.id}"]`);
+    if (rescueBtn) rescueBtn.hidden = !status.available;
+  }
+
+  // no point offering a second chance with nothing left in it
+  el.rescue.classList.toggle("empty", !anyAvailable);
 }
 
 // ---------- tray ----------
 
-/** Pixel size of one block when a piece is drawn in the tray. */
+/**
+ * Pixel size of one block when a piece is drawn in the tray.
+ *
+ * The tray is a fixed height now, so the pieces are drawn a little larger
+ * than they used to be — they're what you have to grab, and they were
+ * swimming in their slots.
+ */
 export function trayCellSize(piece) {
   const maxDim = Math.max(piece.width, piece.height, 3);
-  return Math.min(90 / maxDim, 26);
+  return Math.min(102 / maxDim, 30);
 }
 
 /** Pixel size of one block when a piece is dragged over the board. */
@@ -180,14 +232,6 @@ export function hideTraySlot(slot) {
   if (slotEl) slotEl.style.visibility = "hidden";
 }
 
-/** Lights up the tray slot the player tapped. Pass null to clear. */
-export function markSelectedSlot(slot) {
-  [...el.tray.children].forEach((slotEl, index) => {
-    slotEl.classList.toggle("selected", index === slot);
-  });
-  el.app.classList.toggle("has-selection", slot !== null);
-}
-
 // ---------- stats ----------
 
 export function renderScore(score) {
@@ -198,25 +242,16 @@ export function renderBest(best) {
   el.best.textContent = best;
 }
 
-/** Level badge, ×multiplier and the progress bar under the header. */
-export function renderLevel(level, progress, multiplier) {
+/**
+ * Level badge and the progress bar under the header.
+ *
+ * The score multiplier is deliberately not shown: it's a number the
+ * player can't act on, and the level it comes from is right there.
+ */
+export function renderLevel(level, progress) {
   el.levelValue.textContent = level;
-  el.levelMult.textContent = `×${multiplier.toFixed(2).replace(/\.?0+$/, "")}`;
   el.levelBar.style.width = `${Math.round(progress * 100)}%`;
   el.levelBadge.classList.toggle("maxed", level >= MAX_LEVEL);
-}
-
-/**
- * Hints and undo share one pool of assists, so both buttons show the same
- * number — spend it whichever way you like.
- */
-export function renderAssists(assistsLeft, canUndo) {
-  el.hintCount.textContent = assistsLeft;
-  el.undoCount.textContent = assistsLeft;
-  el.hintBtn.disabled = assistsLeft <= 0;
-  el.undoBtn.disabled = !canUndo;
-  el.overlayUndoBtn.disabled = !canUndo;
-  el.overlayUndoBtn.style.display = canUndo ? "" : "none";
 }
 
 // ---------- overlay ----------

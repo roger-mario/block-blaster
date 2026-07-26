@@ -1,6 +1,6 @@
 {
   "name": "block-blaster",
-  "version": "2.0.0",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "description": "Block Drop — a static browser puzzle game. No build step; the tests run on Node's built-in runner.",

@@ -1,15 +1,16 @@
 /**
- * menu.js — the burger menu: leaderboard, stats, piece odds, version.
+ * menu.js — the burger menu: the leaderboard, and not much else.
  *
- * Everything here is read-only reporting on state that lives elsewhere,
- * apart from the one input that sets your name. Opening the menu pauses
- * nothing; the board is simply covered.
+ * It used to carry a live stats table and a breakdown of the piece odds.
+ * Both were interesting to build and neither was anything the player
+ * could act on, so the menu is now the board, a short reminder of the
+ * rules, and the version.
+ *
+ * Opening the menu pauses nothing; the board is simply covered.
  */
 
-import { APP_VERSION, ASSISTS_PER_GAME } from "./config.js";
+import { APP_VERSION } from "./config.js";
 import { el } from "./dom.js";
-import { MAX_LEVEL } from "./difficulty.js";
-import { shapeOdds } from "./dealer.js";
 import {
   loadBoard,
   recordScore,
@@ -112,8 +113,6 @@ export function renderGameOverName() {
 
 async function render() {
   renderPlayer();
-  renderStats();
-  renderOdds();
   await renderScores();
 }
 
@@ -179,86 +178,3 @@ function loadingRow() {
   return row;
 }
 
-function renderStats() {
-  if (!game) return;
-  const rows = [
-    ["Level", `${game.level} of ${MAX_LEVEL}`],
-    ["Score", game.score.toLocaleString()],
-    ["Lines cleared", game.linesCleared],
-    ["Pieces placed", game.stats.piecesPlaced],
-    ["Best combo", game.stats.bestCombo > 0 ? `×${game.stats.bestCombo}` : "—"],
-    ["Perfect clears", game.stats.perfectClears],
-    ["Assists left", `${game.assistsLeft} of ${ASSISTS_PER_GAME}`],
-  ];
-
-  el.statList.replaceChildren();
-  for (const [label, value] of rows) {
-    const row = document.createElement("div");
-    row.className = "stat-row";
-
-    const name = document.createElement("span");
-    name.textContent = label;
-
-    const val = document.createElement("strong");
-    val.textContent = String(value);
-
-    row.append(name, val);
-    el.statList.appendChild(row);
-  }
-}
-
-/**
- * "What turns up at this level" — the same weights the dealer uses,
- * drawn as little shape previews so the curve is actually inspectable.
- */
-function renderOdds() {
-  if (!game) return;
-  el.oddsLevel.textContent = `Level ${game.level}`;
-  el.oddsList.replaceChildren();
-
-  const odds = shapeOdds(game.level);
-  const topShare = odds[0]?.share || 1;
-
-  for (const { shape, share } of odds) {
-    const row = document.createElement("div");
-    row.className = "odds-row";
-
-    row.appendChild(shapeThumb(shape));
-
-    const bar = document.createElement("div");
-    bar.className = "odds-bar";
-    const fill = document.createElement("div");
-    // scaled against the most common shape so the bars use the full width
-    fill.style.width = `${Math.max(4, (share / topShare) * 100)}%`;
-    bar.appendChild(fill);
-
-    const pct = document.createElement("span");
-    pct.className = "odds-pct";
-    pct.textContent = `${(share * 100).toFixed(1)}%`;
-
-    row.append(bar, pct);
-    el.oddsList.appendChild(row);
-  }
-}
-
-/** A tiny grid drawing of one shape. */
-function shapeThumb(shape) {
-  const width = Math.max(...shape.cells.map((c) => c[1])) + 1;
-  const height = Math.max(...shape.cells.map((c) => c[0])) + 1;
-
-  const thumb = document.createElement("div");
-  thumb.className = "odds-thumb";
-  thumb.style.gridTemplateColumns = `repeat(${width}, 5px)`;
-  thumb.style.gridTemplateRows = `repeat(${height}, 5px)`;
-  thumb.title = shape.name;
-
-  const filled = new Set(shape.cells.map(([r, c]) => `${r},${c}`));
-  for (let r = 0; r < height; r++) {
-    for (let c = 0; c < width; c++) {
-      const dot = document.createElement("i");
-      if (filled.has(`${r},${c}`)) dot.className = "on";
-      thumb.appendChild(dot);
-    }
-  }
-  return thumb;
-}

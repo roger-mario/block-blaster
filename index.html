@@ -23,8 +23,8 @@
     </div>
 
     <div class="level" id="levelBadge">
-      <div class="level-top">LVL <span id="levelValue">1</span></div>
-      <div class="level-mult" id="levelMult">×0.6</div>
+      <div class="level-label">LEVEL</div>
+      <div class="level-value" id="levelValue">1</div>
     </div>
 
     <div class="stat best">
@@ -37,14 +37,9 @@
     <div id="levelBar"></div>
   </div>
 
-  <div id="assists">
-    <button id="hintBtn" type="button" aria-label="Spend an assist on a hint">
-      <span class="glyph">💡</span>Hint<span class="pill" id="hintCount">3</span>
-    </button>
-
-    <button id="undoBtn" type="button" aria-label="Spend an assist to undo the last move">
-      <span class="glyph">↩</span>Undo<span class="pill" id="undoCount">3</span>
-    </button>
+  <!-- three lifelines, one use each; the buttons are built in render.js -->
+  <div id="toolbar">
+    <div id="lifelines" class="lifeline-bar" role="group" aria-label="Lifelines"></div>
 
     <button id="menuBtn" type="button" aria-label="Open the menu">
       <span class="burger" aria-hidden="true"></span>
@@ -52,14 +47,17 @@
   </div>
 
   <div id="board-wrap">
-    <div id="combo"></div>
-    <div id="board">
-      <div id="fx"></div>
+    <!-- #board-stack hugs the board, so the combo badge stays pinned to the
+         top of the board itself rather than to the space around it -->
+    <div id="board-stack">
+      <div id="combo"></div>
+      <div id="board">
+        <div id="fx"></div>
+      </div>
     </div>
   </div>
 
   <div id="tray"></div>
-  <p id="tapHint">Drag a piece — or tap one, then tap the board</p>
 </div>
 
 <div id="dragLayer"></div>
@@ -78,7 +76,13 @@
     <button type="submit">Save</button>
   </form>
 
-  <button id="overlayUndoBtn" type="button" class="ghost-btn">↩ Undo last move</button>
+  <!-- an unspent lifeline is a way back into the game -->
+  <div id="rescue">
+    <p class="rescue-label">Second chance</p>
+    <div id="overlayLifelines" class="lifeline-bar overlay-bar"
+         role="group" aria-label="Lifelines you can still use"></div>
+  </div>
+
   <button id="restartBtn" type="button">Play Again</button>
 </div>
 
@@ -104,29 +108,17 @@
       <p class="hint quiet" id="boardNote"></p>
     </section>
 
-    <section>
-      <h3>This game</h3>
-      <div id="statList"></div>
-    </section>
-
-    <section>
-      <h3>Pieces right now <span class="tag" id="oddsLevel">Level 1</span></h3>
-      <p class="hint">How likely each shape is to be dealt at your level.</p>
-      <div id="oddsList"></div>
-    </section>
-
-    <section>
+    <section class="how-section">
       <h3>How to play</h3>
-      <ul class="how">
-        <li><strong>Drag</strong> a piece onto the board — or <strong>tap</strong> it,
-            then tap where you want it.</li>
-        <li>Fill a whole row or column to clear it. Clear several at once for
-            far more points.</li>
-        <li>Clearing on consecutive moves builds a <strong>combo</strong>.</li>
-        <li>You get <strong>3 assists</strong> a game. Spend them on hints, on
-            undo, or a mix.</li>
-        <li>Undo goes back <strong>one</strong> move — even from Game Over.</li>
-      </ul>
+      <p class="how">
+        Drag a piece onto the board. Fill a row or column to clear it —
+        several at once is worth far more.
+      </p>
+      <p class="how">
+        Three lifelines, once each per game:
+        <b>↩ Rewind</b> (up to level 5) · <b>🔀 Shuffle</b> ·
+        <b>💥 Wipe</b> (level 5+).
+      </p>
     </section>
 
     <p class="menu-foot" id="menuVersion">Block Drop</p>

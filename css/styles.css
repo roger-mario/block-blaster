@@ -34,11 +34,19 @@ body {
 
 /* ---------- layout ---------- */
 
+/*
+ * One column, and only the board flexes.
+ *
+ * Everything above the board is fixed height, the tray below it is fixed
+ * height, and #board-wrap takes whatever is left over and centres the
+ * board inside it. That's what stopped the old layout from parking all
+ * the spare space in one dead strip under the tray.
+ */
 #app {
   display: flex;
   flex-direction: column;
   height: 100%;
-  padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));
+  padding: max(10px, env(safe-area-inset-top)) 12px max(10px, env(safe-area-inset-bottom));
 }
 
 #app.shake-1 { animation: shake 0.28s ease-out; }
@@ -61,28 +69,28 @@ header {
   justify-content: space-between;
   align-items: center;
   gap: 12px;
-  padding: 4px 8px 0;
+  padding: 2px 6px 4px;
 }
 
-.stat { min-width: 74px; }
+.stat { min-width: 76px; }
 .stat.best { text-align: right; }
 
 .stat-label {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.1em;
   color: var(--text-dim);
 }
 
 .score {
-  font-size: 34px;
+  font-size: 32px;
   font-weight: 800;
   color: var(--text);
-  line-height: 1.1;
+  line-height: 1.15;
 }
 
 .stat.best .score {
-  font-size: 22px;
+  font-size: 21px;
   color: var(--gold);
 }
 
@@ -96,13 +104,15 @@ header {
 
 /* ---------- level badge + progress ---------- */
 
+/* The level, and nothing else — the score multiplier it implies isn't
+   something the player can do anything with. */
 .level {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 1px;
-  padding: 5px 14px;
-  border-radius: 100px;
+  gap: 0;
+  padding: 4px 16px 6px;
+  border-radius: 18px;
   background: var(--surface-strong);
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
   transition: box-shadow 0.3s ease, background 0.3s ease;
@@ -113,24 +123,24 @@ header {
   box-shadow: inset 0 0 0 1px rgba(255, 210, 63, 0.6);
 }
 
-.level-top {
-  font-size: 13px;
+.level-label {
+  font-size: 9px;
   font-weight: 800;
-  letter-spacing: 0.06em;
-  color: var(--text);
-}
-
-.level-top span { color: var(--gold); }
-
-.level-mult {
-  font-size: 11px;
-  font-weight: 700;
+  letter-spacing: 0.14em;
   color: var(--text-dim);
 }
 
+.level-value {
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1.1;
+  color: var(--gold);
+}
+
 #levelTrack {
+  flex: 0 0 auto;
   height: 4px;
-  margin: 8px 8px 0;
+  margin: 6px 6px 0;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.07);
   overflow: hidden;
@@ -144,73 +154,182 @@ header {
   transition: width 0.45s cubic-bezier(0.2, 0.8, 0.3, 1);
 }
 
-/* ---------- assist buttons (hints + undo share one pool) ---------- */
+/* ---------- lifelines ---------- */
 
-#assists {
+/*
+ * The three lifelines sit centred, with the burger pinned to the right,
+ * so the row reads as "your three options" rather than a toolbar of
+ * unrelated buttons.
+ */
+#toolbar {
+  position: relative;
+  flex: 0 0 auto;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
-  margin-top: 10px;
+  height: 44px;
+  margin-top: 8px;
 }
 
-#assists button {
+.lifeline-bar {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 8px 14px;
+  gap: 14px;
+}
+
+.lifeline {
+  position: relative;
+  width: 42px;
+  height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
   border: none;
-  border-radius: 100px;
-  background: linear-gradient(135deg, #ffd23f, #ff9f43);
+  border-radius: 50%;
+  background: linear-gradient(150deg, #ffd76b, #ff9f43);
   color: #2a1a00;
-  font-size: 14px;
-  font-weight: 800;
   font-family: inherit;
-  box-shadow: 0 4px 14px rgba(255, 180, 60, 0.28);
-  transition: transform 0.15s ease, opacity 0.2s ease;
+  box-shadow: 0 3px 12px rgba(255, 175, 60, 0.3), inset 0 0 0 1px rgba(255, 255, 255, 0.35);
+  transition: transform 0.15s ease, background 0.25s ease, box-shadow 0.25s ease, opacity 0.25s ease;
 }
 
-/* the id alone would lose to `#assists button` above — keep both parts */
-#assists #undoBtn {
-  background: linear-gradient(135deg, #7fb8ff, #4d7ff2);
-  color: #041028;
-  box-shadow: 0 4px 14px rgba(80, 140, 255, 0.28);
+.lifeline .glyph {
+  font-size: 19px;
+  line-height: 1;
 }
 
-#assists #undoBtn:disabled {
+.lifeline:active { transform: scale(0.92); }
+
+/* locked for now — level too low, or too high, or nothing to act on */
+.lifeline.locked {
   background: var(--surface-strong);
-  color: rgba(255, 255, 255, 0.3);
-  box-shadow: none;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+  opacity: 0.55;
 }
 
-#assists button:active:not(:disabled) { transform: scale(0.93); }
+.lifeline.locked .glyph { filter: grayscale(1); }
 
-#assists button:disabled {
-  background: var(--surface-strong);
-  color: rgba(255, 255, 255, 0.3);
-  box-shadow: none;
+/* spent: crossed out and left in place, so you can see what you've used */
+.lifeline.used {
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.07);
+  opacity: 0.4;
 }
 
-#assists .glyph { font-size: 15px; line-height: 1; }
+.lifeline.used .glyph { filter: grayscale(1); }
 
-#assists .pill {
-  min-width: 18px;
-  padding: 1px 5px;
-  border-radius: 100px;
-  background: rgba(0, 0, 0, 0.22);
-  font-size: 12px;
+.lifeline.used::after {
+  content: "";
+  position: absolute;
+  left: 6px;
+  right: 6px;
+  height: 2px;
+  border-radius: 2px;
+  background: rgba(255, 120, 120, 0.9);
+  transform: rotate(-38deg);
+}
+
+/* ---------- lifeline tooltip ---------- */
+
+/*
+ * Shown on hover, on keyboard focus, and for a moment after a tap (the
+ * `peek` class, added in render.js) — a hover-only tooltip would be
+ * invisible on the device most people play this on.
+ */
+.lifeline .tip {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 50%;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: max-content;
+  max-width: 44vw;
+  padding: 7px 10px;
+  border-radius: 10px;
+  background: rgba(12, 14, 30, 0.96);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45), inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+  color: var(--text);
   text-align: center;
+  opacity: 0;
+  transform: translate(-50%, -4px);
+  pointer-events: none;
+  transition: opacity 0.16s ease, transform 0.16s ease;
 }
 
-#assists button:disabled .pill { background: rgba(0, 0, 0, 0.2); }
+.lifeline .tip b {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.lifeline .tip i {
+  font-style: normal;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.lifeline:hover .tip,
+.lifeline:focus-visible .tip,
+.lifeline.peek .tip {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+/* the outer two would otherwise hang off the edge of a narrow screen */
+.lifeline-bar .lifeline:first-child .tip { left: 0; transform: translate(0, -4px); }
+.lifeline-bar .lifeline:last-child .tip { left: auto; right: 0; transform: translate(0, -4px); }
+
+.lifeline-bar .lifeline:first-child:hover .tip,
+.lifeline-bar .lifeline:first-child:focus-visible .tip,
+.lifeline-bar .lifeline:first-child.peek .tip,
+.lifeline-bar .lifeline:last-child:hover .tip,
+.lifeline-bar .lifeline:last-child:focus-visible .tip,
+.lifeline-bar .lifeline:last-child.peek .tip {
+  transform: translate(0, 0);
+}
+
+/* the rescue row on the Game Over screen */
+#rescue {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-top: 22px;
+}
+
+#rescue.empty { display: none; }
+
+/* qualified with #overlay so it outranks the generic `#overlay p` above */
+#overlay .rescue-label {
+  margin: 0 0 8px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.overlay-bar { gap: 18px; }
+
+.overlay-bar .lifeline[hidden] { display: none; }
+
+.overlay-bar .tip { top: auto; bottom: calc(100% + 8px); }
 
 /* burger */
 
-#assists #menuBtn {
+#toolbar #menuBtn {
+  position: absolute;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   padding: 0;
   width: 38px;
   height: 34px;
-  justify-content: center;
+  border: none;
+  border-radius: 100px;
   background: var(--surface-strong);
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
 }
@@ -283,11 +402,25 @@ header {
 /* ---------- board ---------- */
 
 #board-wrap {
-  position: relative;
-  flex: 0 0 auto;
-  margin-top: 12px;
+  flex: 1 1 auto;
+  min-height: 0;
   display: flex;
+  align-items: center;
   justify-content: center;
+  padding: 6px 0;
+}
+
+/*
+ * The stack owns the board's size. `100%` is the padded column, so the
+ * board can never overhang it; the last term keeps it clear of the header
+ * and the tray on short screens, and whatever is left over becomes free
+ * margin above and below.
+ */
+#board-stack {
+  position: relative;
+  display: flex;
+  width: min(100%, 480px, calc(100vh - 260px));
+  width: min(100%, 480px, calc(100dvh - 260px));
 }
 
 #board {
@@ -295,7 +428,7 @@ header {
   display: grid;
   grid-template-columns: repeat(8, 1fr);
   grid-template-rows: repeat(8, 1fr);
-  width: min(94vw, 480px);
+  width: 100%;
   aspect-ratio: 1 / 1;
   background: rgba(255, 255, 255, 0.06);
   border-radius: 14px;
@@ -306,20 +439,6 @@ header {
 /* the board itself glows when a drop would clear a line */
 #board.clear-imminent {
   box-shadow: 0 0 0 2px rgba(255, 220, 90, 0.55), 0 0 34px rgba(255, 200, 60, 0.35);
-}
-
-/* a piece is picked up and waiting for you to tap a square */
-#app.has-selection #board {
-  box-shadow: 0 0 0 2px rgba(120, 190, 255, 0.4);
-  cursor: crosshair;
-}
-
-/* you tapped somewhere the piece simply can't go */
-#board.tap-reject { animation: tapReject 0.26s ease-out; }
-
-@keyframes tapReject {
-  0%, 100% { box-shadow: 0 0 0 2px rgba(255, 80, 80, 0); }
-  40%      { box-shadow: 0 0 0 3px rgba(255, 90, 90, 0.85), 0 0 26px rgba(255, 60, 60, 0.35); }
 }
 
 /* the difficulty ladder just ticked up */
@@ -338,6 +457,15 @@ header {
   0%   { filter: brightness(1); }
   35%  { filter: brightness(1.35) saturate(0.6); }
   100% { filter: brightness(1); }
+}
+
+/* the Wipe lifeline — a hard white flash, then an empty board */
+#board.wipe-flash { animation: wipeFlash 0.75s ease-out; }
+
+@keyframes wipeFlash {
+  0%   { box-shadow: 0 0 0 2px rgba(255, 255, 255, 0); }
+  20%  { box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.9), inset 0 0 70px rgba(255, 255, 255, 0.45); }
+  100% { box-shadow: 0 0 0 2px rgba(255, 255, 255, 0), inset 0 0 0 rgba(255, 255, 255, 0); }
 }
 
 .cell {
@@ -378,22 +506,6 @@ header {
 @keyframes willClearNew {
   0%, 100% { box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.9); }
   50%      { box-shadow: inset 0 0 0 3px #fff, 0 0 18px rgba(255, 230, 120, 0.9); }
-}
-
-/* hint highlight */
-.cell.hint-cell {
-  animation: hintPulse 1s ease-in-out infinite;
-}
-
-@keyframes hintPulse {
-  0%, 100% {
-    box-shadow: inset 0 0 0 2px rgba(255, 210, 63, 0.7);
-    background: rgba(255, 210, 63, 0.14);
-  }
-  50% {
-    box-shadow: inset 0 0 0 3px rgba(255, 210, 63, 1), 0 0 20px rgba(255, 210, 63, 0.6);
-    background: rgba(255, 210, 63, 0.34);
-  }
 }
 
 /* blocks popping in when you place a piece */
@@ -520,24 +632,18 @@ header {
 
 /* ---------- tray ---------- */
 
+/*
+ * A fixed height, not `flex: 1`. Letting the tray grow is what left that
+ * long empty strip at the bottom of the screen — the pieces inside are
+ * drawn at a fixed pixel size, so the extra height was never used.
+ */
 #tray {
-  flex: 1;
+  flex: 0 0 auto;
   display: flex;
   gap: 10px;
-  margin-top: 14px;
+  height: clamp(84px, 15vh, 118px);
+  margin-top: 6px;
 }
-
-#tapHint {
-  margin: 8px 0 0;
-  text-align: center;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  color: var(--text-dim);
-  transition: opacity 0.2s ease;
-}
-
-#app.has-selection #tapHint { opacity: 0; }
 
 .tray-slot {
   flex: 1;
@@ -548,28 +654,6 @@ header {
   background: var(--surface);
   border-radius: 14px;
   transition: background 0.2s ease, box-shadow 0.2s ease;
-}
-
-.tray-slot.hint-slot {
-  animation: hintSlotPulse 1s ease-in-out infinite;
-}
-
-/* the piece you tapped, waiting to be dropped on the board */
-.tray-slot.selected {
-  background: rgba(120, 190, 255, 0.16);
-  box-shadow: inset 0 0 0 2px rgba(120, 190, 255, 0.9), 0 0 22px rgba(90, 160, 255, 0.35);
-}
-
-.tray-slot.selected .piece { animation: selectedFloat 1.4s ease-in-out infinite; }
-
-@keyframes selectedFloat {
-  0%, 100% { transform: translateY(0) scale(1); }
-  50%      { transform: translateY(-4px) scale(1.06); }
-}
-
-@keyframes hintSlotPulse {
-  0%, 100% { box-shadow: inset 0 0 0 2px rgba(255, 210, 63, 0.6); background: rgba(255, 210, 63, 0.08); }
-  50%      { box-shadow: inset 0 0 0 3px rgba(255, 210, 63, 1), 0 0 22px rgba(255, 210, 63, 0.45); background: rgba(255, 210, 63, 0.18); }
 }
 
 .piece { position: relative; }
@@ -661,7 +745,7 @@ header {
 #overlay .new-best { color: var(--gold); font-weight: 700; }
 
 #restartBtn {
-  margin-top: 18px;
+  margin-top: 22px;
   padding: 14px 34px;
   border: none;
   border-radius: 100px;
@@ -671,22 +755,6 @@ header {
   font-size: 17px;
   font-weight: 700;
 }
-
-/* second chance: spend an assist to take the fatal move back */
-.ghost-btn {
-  margin-top: 20px;
-  padding: 11px 26px;
-  border: none;
-  border-radius: 100px;
-  background: rgba(255, 255, 255, 0.12);
-  color: #fff;
-  font-family: inherit;
-  font-size: 15px;
-  font-weight: 700;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.22);
-}
-
-.ghost-btn:disabled { display: none; }
 
 /* ---------- game-over extras ---------- */
 
@@ -893,78 +961,19 @@ header {
 #scoreList .lvl { font-size: 11px; color: var(--text-dim); }
 #scoreList .pts { font-weight: 800; color: var(--gold); }
 
-/* this-game stats */
+/* how to play — two lines, not a manual */
 
-.stat-row {
-  display: flex;
-  justify-content: space-between;
-  padding: 6px 0;
-  font-size: 14px;
-  color: var(--text-dim);
-}
-
-.stat-row strong { color: var(--text); }
-
-/* piece odds */
-
-.odds-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 3px 0;
-}
-
-.odds-thumb {
-  display: grid;
-  gap: 1px;
-  width: 32px;
-  flex: 0 0 32px;
-  justify-content: start;
-}
-
-.odds-thumb i {
-  width: 5px;
-  height: 5px;
-  border-radius: 1px;
-  background: transparent;
-}
-
-.odds-thumb i.on { background: #7fb8ff; }
-
-.odds-bar {
-  flex: 1;
-  height: 6px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.06);
-  overflow: hidden;
-}
-
-.odds-bar div {
-  height: 100%;
-  border-radius: 999px;
-  background: linear-gradient(90deg, #4da6f2, #ffd23f);
-}
-
-.odds-pct {
-  width: 40px;
-  text-align: right;
-  font-size: 11px;
-  font-variant-numeric: tabular-nums;
-  color: var(--text-dim);
-}
-
-/* how to play */
+.how-section { padding-bottom: 8px; }
 
 .how {
-  margin: 0;
-  padding-left: 18px;
-  font-size: 13px;
-  line-height: 1.55;
-  color: rgba(255, 255, 255, 0.75);
+  margin: 0 0 6px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.7);
 }
 
-.how li { margin-bottom: 6px; }
-.how strong { color: var(--text); }
+.how:last-child { margin-bottom: 0; }
+.how b { color: var(--text); font-weight: 700; }
 
 .menu-foot {
   margin: 18px 0 0;
@@ -999,21 +1008,19 @@ header {
   .float-score { animation-duration: 0.5s; }
 
   .cell.will-clear,
-  .cell.will-clear-new,
-  .cell.hint-cell,
-  .tray-slot.hint-slot,
-  .tray-slot.selected .piece { animation-duration: 0.01s; animation-iteration-count: 1; }
+  .cell.will-clear-new { animation-duration: 0.01s; animation-iteration-count: 1; }
 
   #board.level-flash,
   #board.undo-flash,
-  #board.tap-reject { animation: none; }
+  #board.wipe-flash { animation: none; }
 
   #levelBar { transition: none; }
 
   #menuPanel,
   #menuBackdrop { animation: none; }
 
-  .cell.will-clear    { box-shadow: inset 0 0 0 3px rgba(255, 220, 90, 0.95); }
-  .cell.hint-cell     { box-shadow: inset 0 0 0 3px rgba(255, 210, 63, 1); }
-  .tray-slot.hint-slot { box-shadow: inset 0 0 0 3px rgba(255, 210, 63, 1); }
+  .lifeline,
+  .lifeline .tip { transition: none; }
+
+  .cell.will-clear { box-shadow: inset 0 0 0 3px rgba(255, 220, 90, 0.95); }
 }
