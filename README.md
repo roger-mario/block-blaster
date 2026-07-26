@@ -1,6 +1,6 @@
 # Block Drop
 
-**v0.0.4** — see [CHANGELOG.md](CHANGELOG.md)
+**v0.1.0** — see [CHANGELOG.md](CHANGELOG.md)
 
 A block-puzzle game that runs in the browser, installs to your iPhone home
 screen, and costs nothing to host. No Xcode, no Apple developer fee, no
@@ -39,7 +39,24 @@ npm test
 ```
 
 That covers the board rules, the difficulty ladder, the whole scoring
-system, the assist/undo budget and the tap-to-place geometry.
+system, the three lifelines and what a drop is allowed to do.
+
+---
+
+## Going back a version
+
+Every release is tagged, so any of them can be brought back:
+
+```bash
+git tag -l                 # v0.0.4, v0.1.0, …
+```
+
+- **In Vercel** — Deployments → pick the older build → **Instant
+  Rollback**. The live URL points at it within seconds, and nothing in the
+  repo changes.
+- **In git** — `git revert -m 1 <merge-commit>` puts the previous version
+  back as a new commit, which redeploys itself. To go back wholesale
+  instead: `git checkout v0.0.4 -- .` on a branch, then push that.
 
 ---
 
@@ -83,11 +100,11 @@ js/
   storage.js        localStorage that can't throw
   leaderboard.js    names and scores, shared board + local fallback
   game.js           all the rules. Never touches the DOM.
-  solver.js         works out a good move for the Hint button
+  solver.js         scores candidate moves (dev tool; see Debugging)
   dom.js            element references and pixel geometry
   render.js         draws game state onto the page
   effects.js        animations, particles, screen shake
-  input.js          drag *and* tap-to-place
+  input.js          dragging a piece from the tray to the board
   menu.js           the burger menu panel
   main.js           wiring — connects game events to visuals
 tests/              node --test suite, no dependencies
@@ -122,31 +139,46 @@ export function attachSound(game) {
 Then one line in `main.js`: `attachSound(game);`
 
 The events available are `reset`, `place`, `clear`, `bonus`, `levelup`,
-`comboBreak`, `score`, `tray`, `hint`, `assists`, `undo` and `gameover`.
+`comboBreak`, `score`, `tray`, `lifelines`, `undo`, `shuffle`, `wipe`,
+`revive` and `gameover`.
 
 ---
 
 ## Features
 
-### Two ways to place a piece
+### The screen
 
-**Drag** a piece exactly as before — or **tap** it once to pick it up and
-tap the board to drop it. Both work at all times; you never have to
-choose a mode.
+One column, and only the board flexes:
 
-- The two gestures are told apart by distance. A press that moves less
-  than `FX.tapSlop` pixels (8 by default) is a tap; anything further
-  turns into a drag halfway through, ghost and all.
-- The tapped piece lifts and glows in the tray, and the board picks up a
-  blue rim so it's obvious the game is waiting for you.
-- A tap drops the piece **centred on the square you touched**. Fingers
-  aren't precise, so if that exact spot doesn't fit, the game spirals
-  outward up to `FX.snapRadius` squares and takes the nearest legal
-  position instead. If nothing within reach works, the board flashes red
-  and the piece stays in your hand.
-- With a mouse, moving over the board previews the landing spot live.
-- Tap the same piece again, tap anywhere outside the board, or press
-  **Escape** to put it back.
+```
+score · level · best      fixed height
+progress bar
+↩ 🔀 💥            ☰     the lifelines, fixed height
+                          ← all the spare space ends up here,
+[ board ]                    split above and below the board
+                          ←
+[ tray ]                  fixed height
+```
+
+The tray used to be `flex: 1`, which is what left a long dead strip along
+the bottom of the screen: the pieces inside it are drawn at a fixed pixel
+size, so the extra height was never used for anything. Now the tray and
+everything above the board have fixed heights, `#board-wrap` takes what's
+left, and the board sits centred in it. On a short screen the board shrinks
+instead of colliding with the tray — that's the `calc(100dvh - 260px)`
+term in its `width`.
+
+### Placing a piece: drag it
+
+Press a piece and drag it onto the board. That's the only gesture — there
+is no tap-to-place, no mode to be in, and nothing to explain on screen.
+
+- A press that never moves more than `FX.tapSlop` pixels (8 by default)
+  isn't a shortcut for anything; it just puts the piece back.
+- The landing spot is previewed live under the piece, and the whole line
+  lights up when a drop would clear one.
+- The drop is exact: where the piece's top-left corner sits is where it
+  lands. Nothing snaps it somewhere you didn't aim.
 
 #### Why dragging feels immediate
 
@@ -191,8 +223,9 @@ better. Reaching a level changes two things at once:
 | 9 | 88 | — | 3.00 |
 | 10 | 108 | — | 3.50 |
 
-The header shows the level, the current multiplier and a bar filling
-toward the next level.
+The header shows the level and a bar filling toward the next one. The
+multiplier itself isn't displayed — it's a number you can't act on, and
+the level it comes from is right there.
 
 #### Each shape has its own curve
 
@@ -270,40 +303,50 @@ what makes pushing deeper worth the harder pieces.
 Each bonus announces itself with its own badge. Several can fire on one
 move, so they queue up and play in sequence rather than overlapping.
 
-### Assists: three per game, hint *or* undo
+### Lifelines: three of them, one use each
 
-You get **three assists a game, and you choose what to spend them on.**
-Both buttons show the same number because they draw on the same pot.
+In the spirit of the quiz show. They are deliberately **not**
+interchangeable — two of them only exist for part of the ladder, so *when*
+you spend one matters as much as which:
 
-**💡 Hint** highlights a good move: the target squares pulse on the board
-and the matching tray piece lights up for about 3 seconds.
+| | Lifeline | What it does | When |
+|---|---|---|---|
+| ↩ | **Rewind** | takes back your last placement — board, tray, score, combo and level all go back exactly as they were | levels 1–5 |
+| 🔀 | **Shuffle** | re-deals the pieces still in your tray | any level |
+| 💥 | **Wipe** | clears every block off the board | level 5+ |
 
-**↩ Undo** takes back your last placement — the board, the tray, the
-score, the combo and the level all go back exactly as they were.
+Rewind still only ever goes back **one step**: the game keeps a single
+snapshot, taken at the start of each placement. Above level 5 it's gone
+altogether — by then you're expected to live with your mistakes, and Wipe
+has taken over as the way out.
 
-Undo deliberately only ever goes back **one step**. The game keeps a
-single snapshot, taken at the start of each placement, and throws it away
-the moment you use it. So you can rewind the move you just made, but never
-unwind three moves in a row. Make another move and undo is available
-again.
+Shuffle only refills the slots you haven't used, so shuffling with one
+piece left hands you one piece, not a fresh three. It drops the rewind
+snapshot as it goes: a new deal is a new position, and rewinding across it
+would quietly undo the shuffle too.
 
-It also works on the **Game Over screen** — if a placement dead-ends you
-and you still have an assist, "Undo last move" puts you back in the game.
+Wipe scores nothing and doesn't move the ladder. It's a rescue, not a
+clear.
 
-`solver.js` powers the hints by trying every piece in every legal
-position and scoring each one:
+**Locked buttons still do something.** Tapping a dark lifeline is how you
+find out what's wrong with it — it answers with the reason ("Unlocks at
+level 5", "Already used"). Spent ones stay on screen, crossed out, so you
+can see what you've burned. The tooltip shows on hover, on keyboard focus,
+and for a moment after a tap, because hover doesn't exist on a phone.
 
-| Factor | Weight | Meaning |
-|---|---|---|
-| `linesCleared` | +1000 | clearing beats everything |
-| `contact` | +12 | reward tucking pieces against walls/blocks |
-| `holeCreated` | −25 | punish leaving unusable single cells |
-| `rowProgress` | +2 | reward partial progress toward lines |
+All three work from the **Game Over screen** too, where whichever ones you
+have left are offered as a second chance — a wipe or a shuffle can pull
+you out of a dead end, not just a rewind. The rules recompute the verdict
+after every lifeline, so the overlay lifts by itself when one saves you.
+
+Adding a fourth lifeline means adding an entry to `LIFELINES` in
+`config.js` and a branch in `useLifeline()`; the buttons, the tooltips,
+the locking and the rescue row all build themselves from that list.
 
 ### Line-clear preview
 
-As you move a piece around — dragging, or hovering with a selected piece —
-if dropping it there would complete a row or column, the game shows you
+As you drag a piece around, if dropping it there would complete a row or
+column, the game shows you
 before you commit: every cell in the doomed lines pulses gold, the board
 gets a gold glow, and the piece itself glows too.
 
@@ -326,14 +369,14 @@ subtler than a line clear, so clears still feel like the big moment.
 
 ### The menu
 
-The ☰ button opens a panel with four sections:
+The ☰ button opens the **leaderboard**, and under it a two-line reminder
+of the rules. That's all.
 
-- **Leaderboard** — the top 10 on this device, your own row highlighted
-- **This game** — level, score, lines, pieces placed, best combo, perfect
-  clears, assists left
-- **Pieces right now** — every shape unlocked at your level with its exact
-  chance of being dealt
-- **How to play** — including tap-to-place, which is otherwise easy to miss
+It used to also carry a live stats table and a breakdown of the piece odds
+at your level. Both were interesting to build; neither was anything you
+could act on mid-game, and they pushed the board — the reason the panel
+exists — off the top of the screen. `shapeOdds()` in `dealer.js` still
+computes the odds and is still tested, if you want them back.
 
 Escape, the ✕, or a tap on the backdrop closes it.
 
@@ -414,7 +457,7 @@ Almost everything is in `js/config.js`:
 |---|---|
 | `APP_VERSION` | the version shown on the page and in the menu |
 | `BOARD_SIZE` | grid dimensions (8 = classic) |
-| `ASSISTS_PER_GAME` | hints + undos you get per game |
+| `LIFELINES` | the three lifelines: icon, label, and the levels each is available at |
 | `LEVELS` | the difficulty ladder — thresholds, multipliers, `clearChance` |
 | `COLORS` | the block palette |
 | `SCORING` | per cell, per line, combo, and all four bonuses |
@@ -424,15 +467,14 @@ Almost everything is in `js/config.js`:
 | `LEADERBOARD_SIZE` | how many scores the table keeps |
 | `FX.dragLift` | how far the piece sits above your finger (touch) |
 | `FX.dragScale` | how much a picked-up piece swells |
-| `FX.tapSlop` | how far a press may move and still count as a tap |
-| `FX.snapRadius` | how forgiving tap-to-place is |
+| `FX.tapSlop` | how far a press may move before it becomes a drag |
 | `FX.shardsPerCell` | confetti density — lower if it feels sluggish |
 | `TIMING.badgeGap` | pause between stacked bonus badges |
 
 **How often each shape appears is set in `js/pieces.js`**, on the shape
 itself. To make 5-bars even more common, raise their `weight`; to bring
-the 3×3 in earlier, lower its `from`. Open the menu afterwards and the
-"Pieces right now" table shows the result immediately.
+the 3×3 in earlier, lower its `from`. `shapeOdds(level)` in `dealer.js`
+prints the resulting distribution — it's exported for exactly this.
 
 Visual styling lives in `css/styles.css`, grouped by area with comments.
 
@@ -447,9 +489,9 @@ browser console (or Safari's Web Inspector connected to your phone):
 blockdrop.game.board                         // inspect the grid
 blockdrop.game.level                         // current level
 blockdrop.game.stats                         // pieces placed, best combo…
-blockdrop.game.assistsLeft                   // hints/undos remaining
-blockdrop.input.selectedSlot                 // which piece is picked up
-blockdrop.findBestPlacement(blockdrop.game)  // ask the solver directly
+blockdrop.game.lifelineStatuses()            // what's on offer, and why not
+blockdrop.game.useLifeline("wipe")           // spend one from the console
+blockdrop.findBestPlacement(blockdrop.game)  // ask the solver for a move
 blockdrop.game.reset()                       // start over
 ```
 
@@ -458,8 +500,8 @@ blockdrop.game.reset()                       // start over
 ## Accessibility
 
 Anyone with **Reduce Motion** enabled automatically gets a calmer version:
-no shards, no ripples, no screen shake, no floating selected piece, and
-static highlights instead of pulsing ones. The gameplay and all the
+no shards, no ripples, no screen shake, no board flashes, and static
+highlights instead of pulsing ones. The gameplay and all the
 information conveyed by the effects stay identical.
 
 ---
@@ -467,12 +509,10 @@ information conveyed by the effects stay identical.
 ## Ideas for what's next
 
 - **Sound effects** — one new module subscribing to the existing events
-- **Rotating pieces** — a second tap on a selected piece could rotate it
+- **Rotating pieces** — a two-finger twist, or a long press mid-drag
 - **Themes** — the CSS variables at the top of `styles.css` are ready
 - **Daily challenge** — the `Game` constructor already takes an injectable
   `rng`, so seed it from the date
-- **Shared leaderboard** — point the four functions in `leaderboard.js` at
-  a Vercel serverless route backed by a KV store; the UI needs no changes
 - **Missing icons** — `icon-192.png` and `icon-512.png` are referenced by
   `manifest.json` but aren't in the repo, so the home-screen install has
   no icon. The service worker no longer chokes on them, but they're still

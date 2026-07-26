@@ -6,16 +6,47 @@
  */
 
 /** Shown in the menu. Bump it whenever you ship — and add a CHANGELOG entry. */
-export const APP_VERSION = "0.0.4";
+export const APP_VERSION = "0.1.0";
 
 export const BOARD_SIZE = 8;
 export const TRAY_SLOTS = 3;
 
 /**
- * Hints and undos share one budget. Spend all three on hints, all three
- * on undos, or mix them — it's the player's call.
+ * Lifelines — three of them, one use each per game, in the spirit of the
+ * quiz show. They are deliberately not interchangeable: two of them are
+ * only unlocked for part of the ladder, so *when* you spend one matters
+ * as much as which.
+ *
+ *   maxLevel  the lifeline stops being offered above this level
+ *   minLevel  the lifeline is locked until this level
+ *
+ * The order here is the order they appear on screen.
  */
-export const ASSISTS_PER_GAME = 3;
+export const LIFELINES = [
+  {
+    id: "undo",
+    icon: "↩",
+    label: "Rewind",
+    tip: "Take back your last move",
+    maxLevel: 5,
+  },
+  {
+    id: "shuffle",
+    icon: "🔀",
+    label: "Shuffle",
+    tip: "Swap the pieces you were dealt",
+  },
+  {
+    id: "wipe",
+    icon: "💥",
+    label: "Wipe",
+    tip: "Sweep the whole board clean",
+    minLevel: 5,
+  },
+];
+
+/** Lifelines keyed by id, for the lookups game.js does. */
+export const LIFELINE_BY_ID = Object.fromEntries(LIFELINES.map((l) => [l.id, l]));
 
 export const COLORS = [
   "#f28c40", // orange
@@ -93,14 +124,14 @@ export const TIMING = {
   shardLife: 1100,    // max lifetime of a flying shard
   placeStagger: 22,   // ms between blocks popping in when you place a piece
   boardSyncDelay: 60, // delay before the real cells are hidden behind the fx
-  hintDuration: 3200, // how long a hint stays lit up
+  wipeStagger: 14,    // ms between blocks vanishing when the board is wiped
+  tipDuration: 1700,  // how long a tapped lifeline shows its label
   shakeDuration: 460,
   badgeGap: 900,      // ms between stacked bonus badges
 };
 
 export const FX = {
   shardsPerCell: 4,   // lower this if it ever feels sluggish on an old phone
-  snapRadius: 2,      // how far a tap-to-place may search for a legal spot
 
   // ----- drag feel -----
   // The piece has to clear your fingertip on a phone, but a mouse cursor

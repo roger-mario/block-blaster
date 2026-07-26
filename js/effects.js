@@ -182,6 +182,31 @@ function spawnShards(r, c, color, delay) {
   }
 }
 
+/**
+ * The Wipe lifeline: the whole board shatters at once, in a wave running
+ * out from the middle so it reads as one deliberate act rather than 64
+ * separate clears. No score text — a wipe pays nothing.
+ */
+export function playWipeFx(cells, snapshot) {
+  if (cells.length === 0) return;
+
+  const middle = (BOARD_SIZE - 1) / 2;
+
+  for (const [r, c] of cells) {
+    const color = snapshot[r][c];
+    if (!color) continue;
+
+    const delay = Math.round(Math.hypot(r - middle, c - middle) * TIMING.wipeStagger);
+    spawnGhost(r, c, color, delay);
+    if (!REDUCED) spawnShards(r, c, color, delay);
+  }
+
+  replayAnimation(el.board, "wipe-flash");
+  replayAnimation(el.app, "shake-1");
+  setTimeout(() => el.app.classList.remove("shake-1"), TIMING.shakeDuration);
+  buzz([20, 40, 20]);
+}
+
 /** Floating "+N" text at a grid position. */
 export function floatText(text, gridCol, gridRow, { small = false } = {}) {
   const size = cellSize();
@@ -261,6 +286,6 @@ export function comboLabel({ lines, combo }) {
 export function clearAllFx() {
   el.fx.innerHTML = "";
   el.app.classList.remove("shake-1", "shake-2");
-  el.board.classList.remove("level-flash", "undo-flash");
+  el.board.classList.remove("level-flash", "undo-flash", "wipe-flash");
   clearBadges();
 }

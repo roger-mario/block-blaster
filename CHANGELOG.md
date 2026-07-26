@@ -8,6 +8,65 @@ bump that, add an entry here, and bump `CACHE_VERSION` in
 
 ---
 
+## 0.1.0 — 2026-07-26
+
+A pass over everything the player actually touches: the assists are gone,
+replaced by three one-shot lifelines, and the screen has been rebalanced
+around the board.
+
+**Rolling back:** the previous release is tagged `v0.0.4`. In Vercel,
+Deployments → the 0.0.4 build → **Instant Rollback**. From a terminal,
+`git revert` the merge commit, or `git checkout v0.0.4 -- .` on a branch
+and push that.
+
+### Added
+
+- **Three lifelines, one use each per game** — in the spirit of the quiz
+  show, and deliberately not interchangeable:
+  - **↩ Rewind** takes back your last move. Levels 1–5 only; above that
+    you live with your mistakes.
+  - **🔀 Shuffle** re-deals the pieces still in your tray. Any level. It
+    only refills the slots you haven't used, so shuffling with one piece
+    left hands you one piece, not a fresh three.
+  - **💥 Wipe** clears the whole board. Level 5 and up, where Rewind runs
+    out and a filling board starts to bite. It scores nothing — it's a
+    rescue, not a clear.
+- Each lifeline is a single icon button with a tooltip that says what it
+  does, and — once it's spent or locked — why you can't use it. The
+  tooltip shows on hover, on keyboard focus, and for a moment after a tap,
+  so it isn't hover-only trivia on a phone.
+- A locked lifeline is still tappable: tapping it is how you find out
+  what's wrong with it. Spent ones stay on screen, crossed out, so you can
+  see what you've already burned.
+- The Game Over screen offers whichever lifelines you have left as a
+  **second chance** — a wipe or a shuffle can pull you back out of a dead
+  end, not just a rewind.
+
+### Changed
+
+- **The layout is rebalanced.** The tray no longer stretches to fill the
+  screen, which is what left that long dead strip along the bottom. It's a
+  fixed height now, the header has more room to breathe, and the board
+  takes the space that's left and sits centred in it. Tray pieces are drawn
+  a little larger — they're what you have to grab.
+- **Dragging is the only way to place a piece.** Tap-to-place and its
+  on-screen instructions are gone; the gesture was never in any doubt.
+- **The header shows the level, not the score multiplier.** The multiplier
+  was a number you couldn't act on.
+- **The menu is the leaderboard.** The live stats table and the
+  piece-odds breakdown are gone, and "How to play" is two lines instead of
+  a manual.
+
+### Removed
+
+- The three-assist pool, and the **hint** system with it. (`solver.js`
+  stays — it's still reachable from the console as
+  `blockdrop.findBestPlacement(blockdrop.game)`, and it's still tested.)
+- `game.snapOrigin()` and `game.centerOrigin()`, the tap-to-place
+  arithmetic, along with `FX.snapRadius`.
+
+---
+
 ## 0.0.4 — 2026-07-26
 
 ### Added

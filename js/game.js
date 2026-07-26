@@ -14,13 +14,21 @@
  *   comboBreak {}
  *   score      { score, delta, best, isNewBest }
  *   tray       { tray, refilled }
- *   hint       { slot, origin, cells, clearRows, clearCols, assistsLeft }
- *   assists    { assistsLeft, canUndo }
- *   undo       { assistsLeft }
+ *   lifelines  { used, statuses }
+ *   undo       { level }
+ *   shuffle    { tray, slots }
+ *   wipe       { snapshot, cells }
+ *   revive     { reason }
  *   gameover   { score, best, isNewBest, level }
  */
 
-import { BOARD_SIZE, TRAY_SLOTS, ASSISTS_PER_GAME, STORAGE_KEY, FX } from "./config.js";
+import {
+  BOARD_SIZE,
+  TRAY_SLOTS,
+  LIFELINES,
+  LIFELINE_BY_ID,
+  STORAGE_KEY,
+} from "./config.js";
 import { dealTray } from "./dealer.js";
 import {
   levelForLines,
@@ -51,9 +59,11 @@ export class Game extends Emitter {
     this.combo = 0;
     this.linesCleared = 0;
     this.level = 1;
-    this.assistsLeft = ASSISTS_PER_GAME;
     this.over = false;
     this._undo = null;
+
+    // one use each, per game — see LIFELINES in config.js
+    this.lifelineUsed = Object.fromEntries(LIFELINES.map((l) => [l.id, false]));
 
     // shown in the menu; purely informational
     this.stats = { piecesPlaced: 0, bestCombo: 0, clears: 0, perfectClears: 0 };
@@ -63,7 +73,7 @@ export class Game extends Emitter {
     this.emit("reset", {});
     this.emit("tray", { tray: this.tray, refilled: true });
     this.emit("score", { score: 0, delta: 0, best: this.best, isNewBest: false });
-    this.emit("assists", { assistsLeft: this.assistsLeft, canUndo: false });
+    this._emitLifelines();
   }
 
   // ---------- queries ----------
@@ -93,8 +103,7 @@ export class Game extends Emitter {
   }
 
   /**
-   * Look ahead without changing anything.
-   * Powers the drag preview, the tap preview and the hint system.
+   * Look ahead without changing anything. Powers the drag preview.
    */
   previewPlacement(piece, originR, originC) {
     if (!this.canPlace(piece, originR, originC)) {
@@ -137,56 +146,6 @@ export class Game extends Emitter {
     return !active.some((p) => this.anyPlacementExists(p));
   }
 
-  // ---------- tap to place ----------
-
-  /**
-   * Where the piece's top-left corner goes if you want it centred on the
-   * square you tapped. Pure arithmetic — no legality check.
-   */
-  centerOrigin(piece, row, col) {
-    return {
-      row: row - Math.floor((piece.height - 1) / 2),
-      col: col - Math.floor((piece.width - 1) / 2),
-    };
-  }
-
-  /**
-   * The legal origin closest to the square you tapped, or null if nothing
-   * within `radius` works.
-   *
-   * Tapping means you can't be as precise as dragging, so the game meets
-   * you halfway: it tries the centred position first and then spirals
-   * outward a square at a time.
-   */
-  snapOrigin(piece, row, col, radius = FX.snapRadius) {
-    if (!piece) return null;
-    const centre = this.centerOrigin(piece, row, col);
-
-    for (let ring = 0; ring <= radius; ring++) {
-      let bestAtRing = null;
-      let bestDistance = Infinity;
-
-      for (let dr = -ring; dr <= ring; dr++) {
-        for (let dc = -ring; dc <= ring; dc++) {
-          // only the outer edge of this ring — inner ones were done already
-          if (Math.max(Math.abs(dr), Math.abs(dc)) !== ring) continue;
-
-          const origin = { row: centre.row + dr, col: centre.col + dc };
-          if (!this.canPlace(piece, origin.row, origin.col)) continue;
-
-          // among equals prefer the true nearest, so the snap feels honest
-          const distance = dr * dr + dc * dc;
-          if (distance < bestDistance) {
-            bestDistance = distance;
-            bestAtRing = origin;
-          }
-        }
-      }
-      if (bestAtRing) return bestAtRing;
-    }
-    return null;
-  }
-
   // ---------- actions ----------
 
   place(slot, originR, originC) {
@@ -214,7 +173,8 @@ export class Game extends Emitter {
     if (refilled) this._refillTray();
     this.emit("tray", { tray: this.tray, refilled });
 
-    this.emit("assists", { assistsLeft: this.assistsLeft, canUndo: this.canUndo() });
+    // a fresh move means Rewind has something to take back again
+    this._emitLifelines();
 
     if (this.isGameOver()) {
       this.over = true;
@@ -327,39 +287,73 @@ export class Game extends Emitter {
     this.emit("score", { score: this.score, delta, best: this.best, isNewBest });
   }
 
-  // ---------- assists: 3 per game, spend them however you like ----------
+  // ---------- lifelines: three of them, one use each ----------
 
-  /** Spends one assist on a hint. Returns the suggestion, or null. */
-  useHint(finder) {
-    if (this.assistsLeft <= 0 || this.over) return null;
-    const move = finder(this);
-    if (!move) return null;
+  /**
+   * Why a lifeline is or isn't on offer right now.
+   *
+   * The UI renders straight from this, so the reason a button is dark is
+   * decided here in the rules rather than guessed at in the markup.
+   */
+  lifelineStatus(id) {
+    const spec = LIFELINE_BY_ID[id];
+    if (!spec) return { id, used: false, available: false, reason: "No such lifeline" };
 
-    this.assistsLeft--;
-    const payload = { ...move, assistsLeft: this.assistsLeft };
-    this.emit("hint", payload);
-    this.emit("assists", { assistsLeft: this.assistsLeft, canUndo: this.canUndo() });
-    return payload;
+    const base = { id, label: spec.label, icon: spec.icon, used: this.lifelineUsed[id] };
+    const no = (reason) => ({ ...base, available: false, reason });
+
+    if (base.used) return no("Already used");
+    if (spec.maxLevel != null && this.level > spec.maxLevel) {
+      return no(`Gone after level ${spec.maxLevel}`);
+    }
+    if (spec.minLevel != null && this.level < spec.minLevel) {
+      return no(`Unlocks at level ${spec.minLevel}`);
+    }
+
+    if (id === "undo" && this._undo === null) return no("Nothing to take back");
+    if (id === "shuffle" && !this.tray.some(Boolean)) return no("No pieces to swap");
+    if (id === "wipe" && this.isBoardEmpty()) return no("The board is already clear");
+
+    return { ...base, available: true, reason: spec.tip };
   }
 
-  /** One step back is available, and you can afford it. */
+  /** Every lifeline's status, in the order they're shown. */
+  lifelineStatuses() {
+    return LIFELINES.map((spec) => this.lifelineStatus(spec.id));
+  }
+
+  canUseLifeline(id) {
+    return this.lifelineStatus(id).available;
+  }
+
+  /** Spends a lifeline by id. Returns false if it wasn't on offer. */
+  useLifeline(id) {
+    if (!this.canUseLifeline(id)) return false;
+    if (id === "undo") return this.undo();
+    if (id === "shuffle") return this.shuffleTray();
+    if (id === "wipe") return this.wipeBoard();
+    return false;
+  }
+
+  /** Kept for readability at the call sites: "is Rewind on offer?" */
   canUndo() {
-    return this._undo !== null && this.assistsLeft > 0;
+    return this.canUseLifeline("undo");
   }
 
   /**
-   * Takes back the last placement — and only the last one. The snapshot
-   * is dropped afterwards, so you can never rewind two moves in a row.
-   * Costs one assist, out of the same pot as the hints.
+   * Rewind — takes back the last placement, and only the last one.
+   *
+   * Locked away above level 5: by then you're expected to live with your
+   * mistakes, and Wipe has taken over as the way out.
    */
   undo() {
-    if (!this.canUndo()) return false;
+    if (!this.canUseLifeline("undo")) return false;
 
     this._restore(this._undo);
     this._undo = null;
-    this.assistsLeft--;
+    this.lifelineUsed.undo = true;
 
-    this.emit("undo", { assistsLeft: this.assistsLeft, level: this.level });
+    this.emit("undo", { level: this.level });
     this.emit("tray", { tray: this.tray, refilled: false });
     this.emit("score", {
       score: this.score,
@@ -367,8 +361,98 @@ export class Game extends Emitter {
       best: this.best,
       isNewBest: false,
     });
-    this.emit("assists", { assistsLeft: this.assistsLeft, canUndo: false });
+    this._settleLifeline("undo");
     return true;
+  }
+
+  /**
+   * Shuffle — deals fresh pieces into the slots you haven't used yet.
+   *
+   * Only the filled slots are re-dealt, so shuffling with one piece left
+   * hands you one piece, not a whole new tray.
+   */
+  shuffleTray() {
+    if (!this.canUseLifeline("shuffle")) return false;
+
+    const slots = this.tray.reduce((list, p, i) => (p ? [...list, i] : list), []);
+    const fresh = dealTray(slots.length, {
+      level: this.level,
+      board: this.board,
+      rng: this.rng,
+    });
+
+    slots.forEach((slot, i) => {
+      this.tray[slot] = fresh[i];
+    });
+
+    this.lifelineUsed.shuffle = true;
+    // the rewind snapshot holds the *old* tray, so keeping it would quietly
+    // undo the shuffle as well — a new deal is a fresh position
+    this._undo = null;
+
+    this.emit("shuffle", { tray: this.tray, slots });
+    this.emit("tray", { tray: this.tray, refilled: true });
+    this._settleLifeline("shuffle");
+    return true;
+  }
+
+  /**
+   * Wipe — clears every block off the board.
+   *
+   * No points: this is a rescue, not a clear. Locked until level 5, where
+   * Rewind runs out and the board starts to bite.
+   */
+  wipeBoard() {
+    if (!this.canUseLifeline("wipe")) return false;
+
+    const snapshot = this.board.map((row) => row.slice());
+    const cells = [];
+    for (let r = 0; r < BOARD_SIZE; r++) {
+      for (let c = 0; c < BOARD_SIZE; c++) {
+        if (this.board[r][c]) cells.push([r, c]);
+      }
+    }
+
+    this.board = emptyBoard();
+    this.combo = 0;
+    this.lifelineUsed.wipe = true;
+    this._undo = null; // nothing sensible to rewind to across a wipe
+
+    this.emit("wipe", { snapshot, cells });
+    this._settleLifeline("wipe");
+    return true;
+  }
+
+  /**
+   * A lifeline can end a game (a shuffle that fits nowhere) or save one
+   * (a wipe from the Game Over screen), so the verdict is recomputed
+   * after every one of them.
+   */
+  _settleLifeline(id) {
+    const over = this.isGameOver();
+
+    if (this.over && !over) {
+      this.over = false;
+      this.emit("revive", { reason: id });
+    } else if (!this.over && over) {
+      this.over = true;
+      this.emit("gameover", {
+        score: this.score,
+        best: this.best,
+        isNewBest: this.score >= this.best && this.score > 0,
+        level: this.level,
+        canUndo: this.canUndo(),
+      });
+    }
+
+    this._emitLifelines();
+  }
+
+  _emitLifelines() {
+    this.emit("lifelines", {
+      used: { ...this.lifelineUsed },
+      statuses: this.lifelineStatuses(),
+    });
   }
 
   _snapshot() {
