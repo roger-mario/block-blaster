@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+<title>Block Drop</title>
+
+<link rel="manifest" href="manifest.json" />
+<link rel="apple-touch-icon" href="icon-192.png" />
+<link rel="stylesheet" href="css/styles.css" />
+
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="theme-color" content="#0f1122" />
+</head>
+<body>
+
+<div id="app">
+  <header>
+    <div class="stat">
+      <div class="stat-label">SCORE</div>
+      <div class="score" id="scoreEl">0</div>
+    </div>
+
+    <button id="hintBtn" type="button" aria-label="Show a hint">
+      <span class="bulb">💡</span><span id="hintCount">3</span>
+    </button>
+
+    <div class="stat best">
+      <div class="stat-label">BEST</div>
+      <div class="score" id="bestEl">0</div>
+    </div>
+  </header>
+
+  <div id="board-wrap">
+    <div id="combo"></div>
+    <div id="board">
+      <div id="fx"></div>
+    </div>
+  </div>
+
+  <div id="tray"></div>
+</div>
+
+<div id="dragLayer"></div>
+
+<div id="overlay">
+  <h1>Game Over</h1>
+  <p id="finalScore">Score: 0</p>
+  <p class="new-best" id="newBest" style="display: none">New best! 🎉</p>
+  <button id="restartBtn" type="button">Play Again</button>
+</div>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
