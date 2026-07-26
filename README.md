@@ -1,6 +1,6 @@
 # Block Drop
 
-**v0.0.3**
+**v0.0.4** — see [CHANGELOG.md](CHANGELOG.md)
 
 A block-puzzle game that runs in the browser, installs to your iPhone home
 screen, and costs nothing to host. No Xcode, no Apple developer fee, no
@@ -72,6 +72,7 @@ Everything is plain JavaScript modules — no framework, no bundler, no
 ```
 index.html          structure only
 css/styles.css      all styling and keyframes
+api/scores.js       the shared leaderboard (Vercel serverless function)
 js/
   config.js         ← every tunable number lives here
   difficulty.js     the level 1→10 ladder (pure maths)
@@ -80,7 +81,7 @@ js/
   dealer.js         picks your next three, reading the board
   emitter.js        tiny publish/subscribe helper
   storage.js        localStorage that can't throw
-  leaderboard.js    names and scores, kept on this device
+  leaderboard.js    names and scores, shared board + local fallback
   game.js           all the rules. Never touches the DOM.
   solver.js         works out a good move for the Hint button
   dom.js            element references and pixel geometry
@@ -90,6 +91,7 @@ js/
   menu.js           the burger menu panel
   main.js           wiring — connects game events to visuals
 tests/              node --test suite, no dependencies
+CHANGELOG.md        what changed in each version
 service-worker.js   offline support + cache busting
 ```
 
@@ -133,7 +135,7 @@ tap the board to drop it. Both work at all times; you never have to
 choose a mode.
 
 - The two gestures are told apart by distance. A press that moves less
-  than `FX.tapSlop` pixels (10 by default) is a tap; anything further
+  than `FX.tapSlop` pixels (8 by default) is a tap; anything further
   turns into a drag halfway through, ghost and all.
 - The tapped piece lifts and glows in the tray, and the board picks up a
   blue rim so it's obvious the game is waiting for you.
@@ -145,6 +147,30 @@ choose a mode.
 - With a mouse, moving over the board previews the landing spot live.
 - Tap the same piece again, tap anywhere outside the board, or press
   **Escape** to put it back.
+
+#### Why dragging feels immediate
+
+Dragging used to lag behind your finger. Four things fixed it, all in
+`js/input.js` and `js/render.js`:
+
+- The dragged piece moves with `transform`, not `left`/`top`. A transform
+  is handled by the compositor, so following your finger costs no layout
+  and no paint. Nothing transitions the transform — easing toward your
+  finger is exactly what reads as lag.
+- Pointer moves are batched into **one update per animation frame**. A
+  120Hz screen delivers several moves per frame and each one used to do
+  full DOM work.
+- The landing preview is only redrawn when the piece crosses into a
+  **different square**, not on every move.
+- `clearPreview()` only touches the cells it actually marked, instead of
+  sweeping all 64 squares every update.
+
+Measured in the browser: 60 pointer moves that stay inside one square now
+cause **2** class changes; eight moves that each cross a square cause
+**31**. The old sweep-everything approach would have done at least 512.
+
+The piece also no longer floats above a **mouse** cursor — that lift only
+makes sense for a fingertip, which covers what it's holding.
 
 ### Difficulty: ten levels
 
@@ -314,23 +340,69 @@ Escape, the ✕, or a tap on the backdrop closes it.
 ### Leaderboard
 
 Type a name once — in the menu, or on the Game Over screen — and it's
-remembered from then on. Every finished game is recorded silently under
-that name and the Game Over screen tells you where you landed. If you
-haven't set a name, nothing is ever recorded and nothing ever nags you:
-the field simply sits on the Game Over screen until you feel like using
-it.
+remembered from then on. Every finished game is recorded silently and the
+Game Over screen tells you where you landed. If you haven't set a name,
+nothing is recorded and nothing nags you: the field simply sits on the
+Game Over screen until you feel like using it.
 
 Only your **personal best** is kept, so one person can't fill the whole
-table with their last ten games. Names are matched case-insensitively.
+table with their last ten games.
 
-**Scores are stored on the device, not shared between devices or
-players.** The game is a static site with no backend, so there's nowhere
-to put a shared table without standing up a database and wiring
-credentials into the deploy. Everything a remote leaderboard would need
-sits behind the four functions in `js/leaderboard.js` — `getScores`,
-`submitScore`, `getPlayer`, `setPlayer` — so making it global later means
-pointing those at `fetch("/api/scores")` (Vercel serverless + a KV store)
-and changing nothing else.
+#### Who's who
+
+A name can't identify anyone on its own — two friends could both be
+"Alex", and anyone could type your name to overwrite your score. Browsers
+**cannot read a MAC address** or any other hardware identifier; that's
+blocked for privacy and there's no way around it. So on first play the
+game mints a random UUID, keeps it in `localStorage`, and keys the board
+on that. Your name is just the label beside it, and changing it doesn't
+split your row.
+
+The trade-off: the id lives in one browser's storage. Play on your phone
+and your laptop and you'll appear twice, and clearing site data starts you
+fresh.
+
+#### Online vs. on-device
+
+The menu tells you which board you're looking at — a green **everyone**
+badge for the shared one, a grey **this device** badge when it can't be
+reached. The Game Over screen says `#3 worldwide` rather than
+`#3 on this device` when it's live.
+
+Scores are always written locally as well, so a dropped connection never
+loses a game. If the shared board is unreachable — no database connected,
+offline, opened from a `file://` path — the game falls back silently and
+keeps playing.
+
+#### Turning the shared board on
+
+The code is written and deployed; it needs a database connected once:
+
+1. Open your project on [vercel.com](https://vercel.com) → **Storage**
+2. **Marketplace** → **Upstash for Redis** → create a free database
+3. Connect it to this project, then redeploy
+
+That injects `KV_REST_API_URL` and `KV_REST_API_TOKEN`, which
+`api/scores.js` picks up. Until then the route answers `503 online:false`
+and every player just sees their own board — no errors, no broken screens.
+
+`api/scores.js` talks to Upstash over its REST API with plain `fetch`, so
+the project still has **zero runtime dependencies**. Two Redis keys:
+
+| Key | Type | Holds |
+|---|---|---|
+| `blockdrop:scores` | sorted set | `playerId` → best score |
+| `blockdrop:players` | hash | `playerId` → `{name, level, at}` |
+
+A sorted set is Redis's version of a leaderboard, and `ZADD ... GT` only
+ever *raises* a member's score — so a worse game can't overwrite your best
+even if two devices submit at the same instant.
+
+**On cheating:** there's no authentication, so a determined person can
+POST any score they like. The server validates shape, caps the score and
+clamps the level, but that's a sanity check, not a defence. For a board
+shared with friends that's the right trade; anything better needs
+accounts.
 
 ---
 
@@ -350,10 +422,11 @@ Almost everything is in `js/config.js`:
 | `DEALER.fitBoost` | preference for shapes that fit the board right now |
 | `DEALER.crowdPenalty` | how hard duplicate shapes in one tray are damped |
 | `LEADERBOARD_SIZE` | how many scores the table keeps |
+| `FX.dragLift` | how far the piece sits above your finger (touch) |
+| `FX.dragScale` | how much a picked-up piece swells |
 | `FX.tapSlop` | how far a press may move and still count as a tap |
 | `FX.snapRadius` | how forgiving tap-to-place is |
 | `FX.shardsPerCell` | confetti density — lower if it feels sluggish |
-| `FX.dragLift` | how far the piece floats above your finger |
 | `TIMING.badgeGap` | pause between stacked bonus badges |
 
 **How often each shape appears is set in `js/pieces.js`**, on the shape

@@ -5,8 +5,8 @@
  * the only file you need to touch.
  */
 
-/** Shown in the menu. Bump it whenever you ship. */
-export const APP_VERSION = "0.0.3";
+/** Shown in the menu. Bump it whenever you ship — and add a CHANGELOG entry. */
+export const APP_VERSION = "0.0.4";
 
 export const BOARD_SIZE = 8;
 export const TRAY_SLOTS = 3;
@@ -100,9 +100,16 @@ export const TIMING = {
 
 export const FX = {
   shardsPerCell: 4,   // lower this if it ever feels sluggish on an old phone
-  dragLift: 70,       // px the dragged piece floats above your finger
-  tapSlop: 10,        // px of movement before a tap becomes a drag
   snapRadius: 2,      // how far a tap-to-place may search for a legal spot
+
+  // ----- drag feel -----
+  // The piece has to clear your fingertip on a phone, but a mouse cursor
+  // is a single point, so lifting it there just makes the piece float
+  // away from the pointer for no reason.
+  dragLift: 58,       // px above your finger (touch)
+  dragLiftMouse: 0,   // px above the cursor (mouse / trackpad)
+  tapSlop: 8,         // px of movement before a tap becomes a drag
+  dragScale: 1.06,    // the piece swells slightly when you pick it up
 };
 
 /** Labels shown for multi-line clears. */
@@ -124,6 +131,21 @@ export const BONUS_NAMES = {
 export const STORAGE_KEY = "blockdrop-best";
 export const LEADERBOARD_KEY = "blockdrop-leaderboard";
 export const PLAYER_KEY = "blockdrop-player";
+export const PLAYER_ID_KEY = "blockdrop-player-id";
 
 /** How many entries the leaderboard keeps. */
 export const LEADERBOARD_SIZE = 10;
+
+/**
+ * The shared leaderboard.
+ *
+ * `endpoint` is a serverless route in this same project (api/scores.js), so
+ * there's no cross-origin request and no key in the client. If it isn't
+ * reachable — no database configured, offline, running off a file:// path —
+ * the game silently falls back to the on-device board and carries on.
+ */
+export const LEADERBOARD_API = {
+  endpoint: "/api/scores",
+  timeoutMs: 4000,   // don't let a hanging request stall the game-over screen
+  onlineSize: 25,    // how many rows the shared board shows
+};

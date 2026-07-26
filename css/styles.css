@@ -596,16 +596,44 @@ header {
   z-index: 50;
 }
 
+/*
+ * Moved with `transform`, never `left`/`top`: a transform is handled by the
+ * compositor, so following your finger costs no layout or paint. `top` and
+ * `left` stay pinned at 0 and the transform does all the work.
+ *
+ * Nothing here may transition `transform` — the piece must sit exactly
+ * under your finger, and easing toward it is what reads as lag.
+ */
 .drag-ghost {
   position: absolute;
-  filter: drop-shadow(0 8px 10px rgba(0, 0, 0, 0.45));
-  transition: filter 0.15s ease;
+  top: 0;
+  left: 0;
+  transform-origin: center;
+  will-change: transform;
+  filter: drop-shadow(0 10px 12px rgba(0, 0, 0, 0.5));
+  transition: filter 0.12s ease;
+}
+
+/* the pieces inside the ghost get the "picked up" pop, not the ghost itself,
+   so the pop can't fight with the transform that tracks your finger */
+.drag-ghost .piece-cell {
+  animation: grabPop 0.14s cubic-bezier(0.3, 1.5, 0.5, 1);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.4);
+}
+
+@keyframes grabPop {
+  0%   { transform: scale(0.86); }
+  100% { transform: scale(1); }
 }
 
 /* the dragged piece glows when dropping it would clear a line */
 .drag-ghost.will-clear-ghost {
-  filter: drop-shadow(0 8px 10px rgba(0, 0, 0, 0.45)) drop-shadow(0 0 12px rgba(255, 220, 90, 0.95)) brightness(1.2);
+  filter: drop-shadow(0 10px 12px rgba(0, 0, 0, 0.5)) drop-shadow(0 0 14px rgba(255, 220, 90, 0.95)) brightness(1.25);
 }
+
+/* the landing preview should appear instantly, not ease in behind the piece */
+.cell.preview-ok,
+.cell.preview-bad { transition: none; }
 
 /* ---------- game over ---------- */
 
@@ -788,6 +816,21 @@ header {
   font-size: 10px;
   letter-spacing: 0.04em;
   color: var(--gold);
+}
+
+#menuPanel h3 .tag:empty { display: none; }
+
+/* The shared board is the normal case; "this device" means it's unreachable.
+   Qualified with the ancestors so it outranks `#menuPanel h3 .tag` above —
+   an id alone loses that fight. */
+#menuPanel h3 #boardScope {
+  background: rgba(120, 235, 190, 0.16);
+  color: #7ef2c3;
+}
+
+#menuPanel h3 #boardScope.offline {
+  background: var(--surface-strong);
+  color: var(--text-dim);
 }
 
 #menuPanel .hint {

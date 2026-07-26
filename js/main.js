@@ -105,9 +105,10 @@ game.on("undo", () => {
 });
 
 game.on("gameover", (result) => {
-  // record first, so the overlay can show the rank straight away
-  recordResult();
   renderGameOverName();
+  // Submitting goes over the network, so it isn't awaited — the overlay
+  // shows immediately and the rank line fills itself in when it lands.
+  recordResult();
   // wait for any clear animation to finish before covering the board
   setTimeout(() => render.showGameOver(result), 700);
 });

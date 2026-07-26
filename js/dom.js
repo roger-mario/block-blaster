@@ -46,6 +46,8 @@ export const el = {
   nameInput: document.getElementById("nameInput"),
   nameStatus: document.getElementById("nameStatus"),
   scoreList: document.getElementById("scoreList"),
+  boardScope: document.getElementById("boardScope"),
+  boardNote: document.getElementById("boardNote"),
   statList: document.getElementById("statList"),
   oddsList: document.getElementById("oddsList"),
   oddsLevel: document.getElementById("oddsLevel"),

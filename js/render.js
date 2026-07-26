@@ -31,13 +31,24 @@ export function renderBoard(board) {
 
 const PREVIEW_CLASSES = ["preview-ok", "preview-bad", "will-clear", "will-clear-new"];
 
+/**
+ * The cells the last preview actually marked.
+ *
+ * Sweeping all 64 squares to clear four classes each ran on every preview
+ * update; remembering the handful we touched turns that into a few
+ * operations, which is most of why dragging feels immediate now.
+ */
+let markedCells = [];
+
 export function clearPreview() {
-  for (let r = 0; r < BOARD_SIZE; r++) {
-    for (let c = 0; c < BOARD_SIZE; c++) {
-      cellEls[r][c].classList.remove(...PREVIEW_CLASSES);
-    }
-  }
+  for (const cell of markedCells) cell.classList.remove(...PREVIEW_CLASSES);
+  markedCells.length = 0;
   el.board.classList.remove("clear-imminent");
+}
+
+function mark(cell, className) {
+  cell.classList.add(className);
+  markedCells.push(cell);
 }
 
 /**
@@ -58,7 +69,7 @@ export function showPreview(preview, piece, origin) {
     const r = row + dr;
     const c = col + dc;
     if (r >= 0 && r < BOARD_SIZE && c >= 0 && c < BOARD_SIZE) {
-      cellEls[r][c].classList.add(valid ? "preview-ok" : "preview-bad");
+      mark(cellEls[r][c], valid ? "preview-ok" : "preview-bad");
     }
   }
 
@@ -67,8 +78,7 @@ export function showPreview(preview, piece, origin) {
   // highlight every line that would dissolve
   const inPiece = new Set(preview.cells.map(([r, c]) => `${r},${c}`));
   const markLine = (r, c) => {
-    const cell = cellEls[r][c];
-    cell.classList.add(inPiece.has(`${r},${c}`) ? "will-clear-new" : "will-clear");
+    mark(cellEls[r][c], inPiece.has(`${r},${c}`) ? "will-clear-new" : "will-clear");
   };
 
   for (const r of preview.clearRows) for (let c = 0; c < BOARD_SIZE; c++) markLine(r, c);

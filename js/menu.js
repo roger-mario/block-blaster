@@ -10,7 +10,14 @@ import { APP_VERSION, ASSISTS_PER_GAME } from "./config.js";
 import { el } from "./dom.js";
 import { MAX_LEVEL } from "./difficulty.js";
 import { shapeOdds } from "./dealer.js";
-import { getScores, getPlayer, setPlayer, submitScore, MAX_NAME_LENGTH } from "./leaderboard.js";
+import {
+  loadBoard,
+  recordScore,
+  getPlayer,
+  setPlayer,
+  getPlayerId,
+  MAX_NAME_LENGTH,
+} from "./leaderboard.js";
 
 let game = null;
 
@@ -63,25 +70,31 @@ function saveName(raw) {
 /**
  * Records the finished game under the remembered name.
  * Quietly does nothing if there isn't one — never a blocking prompt.
+ *
+ * Submitting happens over the network, so this is async — but nothing
+ * waits on it. The Game Over screen is already up; the rank line fills in
+ * a moment later.
  */
-export function recordResult() {
+export async function recordResult() {
   el.overlayRank.textContent = "";
   el.overlayRank.style.display = "none";
 
   const name = getPlayer();
   if (!name || !game || game.score <= 0) return null;
 
-  const result = submitScore(name, game.score, game.level);
+  const result = await recordScore(game.score, game.level);
   if (result) showRank(result);
-  render();
+  await render();
   return result;
 }
 
-function showRank({ rank, improved }) {
+function showRank({ rank, improved, online }) {
+  const where = online ? "worldwide" : "on this device";
+
   if (rank > 0 && improved) {
-    el.overlayRank.textContent = `#${rank} on this device 🏆`;
+    el.overlayRank.textContent = `#${rank} ${where} 🏆`;
   } else if (rank > 0) {
-    el.overlayRank.textContent = `Your best is still #${rank}`;
+    el.overlayRank.textContent = `Your best is still #${rank} ${where}`;
   } else {
     el.overlayRank.textContent = "";
   }
@@ -97,11 +110,11 @@ export function renderGameOverName() {
 
 // ---------- drawing the panel ----------
 
-function render() {
+async function render() {
   renderPlayer();
-  renderScores();
   renderStats();
   renderOdds();
+  await renderScores();
 }
 
 function renderPlayer() {
@@ -111,12 +124,22 @@ function renderPlayer() {
   el.nameStatus.textContent = name ? `Saving scores as ${name}` : "Add a name to join the board";
 }
 
-function renderScores() {
-  const entries = getScores();
-  const me = getPlayer().toLowerCase();
+async function renderScores() {
+  el.scoreList.replaceChildren(loadingRow());
+  el.boardScope.textContent = "";
+
+  const { online, scores } = await loadBoard();
+  const myId = getPlayerId();
+
+  el.boardScope.textContent = online ? "everyone" : "this device";
+  el.boardScope.classList.toggle("offline", !online);
+  el.boardNote.textContent = online
+    ? "Everyone playing the live game shares this board."
+    : "Shared board unreachable — showing this device's scores.";
+
   el.scoreList.replaceChildren();
 
-  if (entries.length === 0) {
+  if (scores.length === 0) {
     const empty = document.createElement("li");
     empty.className = "empty";
     empty.textContent = "No scores yet — finish a game to get on the board.";
@@ -124,9 +147,9 @@ function renderScores() {
     return;
   }
 
-  entries.forEach((entry, index) => {
+  scores.forEach((entry, index) => {
     const row = document.createElement("li");
-    if (entry.name.toLowerCase() === me) row.classList.add("me");
+    if (entry.playerId && entry.playerId === myId) row.classList.add("me");
 
     const rank = document.createElement("span");
     rank.className = "rank";
@@ -147,6 +170,13 @@ function renderScores() {
     row.append(rank, who, lvl, score);
     el.scoreList.appendChild(row);
   });
+}
+
+function loadingRow() {
+  const row = document.createElement("li");
+  row.className = "empty";
+  row.textContent = "Loading…";
+  return row;
 }
 
 function renderStats() {

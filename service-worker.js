@@ -9,7 +9,7 @@
  * Bump CACHE_VERSION whenever you add or rename a file below.
  */
 
-const CACHE_VERSION = "blockdrop-v0.0.3";
+const CACHE_VERSION = "blockdrop-v0.0.4";
 
 const ASSETS = [
   "./",
@@ -58,6 +58,11 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
+
+  // The leaderboard must never be served from cache — a stale board would
+  // look like the live one. Let it go straight to the network; the client
+  // already falls back to the on-device board if it fails.
+  if (new URL(event.request.url).pathname.startsWith("/api/")) return;
 
   event.respondWith(
     fetch(event.request)
