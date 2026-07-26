@@ -203,9 +203,52 @@ export function bumpBest() {
   replayAnimation(el.best, "bump");
 }
 
-export function showCombo(text) {
+export function showCombo(text, kind = "combo") {
   el.combo.textContent = text;
+  el.combo.className = kind;
   replayAnimation(el.combo, "show");
+}
+
+/**
+ * A single move can set off several announcements at once (double clear,
+ * cross clear, perfect clear, level up). Showing them on top of each
+ * other is unreadable, so they queue up and play one after another.
+ */
+const badgeQueue = [];
+let badgeTimer = null;
+
+export function queueBadge(text, kind = "combo") {
+  badgeQueue.push({ text, kind });
+  if (badgeTimer === null) drainBadges();
+}
+
+function drainBadges() {
+  const next = badgeQueue.shift();
+  if (!next) {
+    badgeTimer = null;
+    return;
+  }
+  showCombo(next.text, next.kind);
+  badgeTimer = setTimeout(drainBadges, TIMING.badgeGap);
+}
+
+export function clearBadges() {
+  badgeQueue.length = 0;
+  clearTimeout(badgeTimer);
+  badgeTimer = null;
+}
+
+/** Gold wash over the board when the difficulty ladder ticks up. */
+export function playLevelUpFx(level) {
+  queueBadge(`LEVEL ${level}!`, "levelup");
+  if (!REDUCED) replayAnimation(el.board, "level-flash");
+  buzz([12, 30, 12, 30, 24]);
+}
+
+/** Quiet, apologetic little pulse — nothing to celebrate about an undo. */
+export function playUndoFx() {
+  replayAnimation(el.board, "undo-flash");
+  buzz(6);
 }
 
 /** Chooses the right celebratory word for a clear. */
@@ -218,4 +261,6 @@ export function comboLabel({ lines, combo }) {
 export function clearAllFx() {
   el.fx.innerHTML = "";
   el.app.classList.remove("shake-1", "shake-2");
+  el.board.classList.remove("level-flash", "undo-flash");
+  clearBadges();
 }

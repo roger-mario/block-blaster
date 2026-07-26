@@ -7,46 +7,60 @@
  *
  * Events emitted:
  *   reset      {}
- *   place      { slot, piece, origin, cells }
+ *   place      { slot, piece, origin, cells, points }
  *   clear      { rows, cols, snapshot, cells, lines, points, combo }
+ *   bonus      { type, label, points }
+ *   levelup    { level, previous, multiplier, bonus }
  *   comboBreak {}
  *   score      { score, delta, best, isNewBest }
  *   tray       { tray, refilled }
- *   hint       { slot, origin, cells, clearRows, clearCols, hintsLeft }
- *   gameover   { score, best, isNewBest }
+ *   hint       { slot, origin, cells, clearRows, clearCols, assistsLeft }
+ *   assists    { assistsLeft, canUndo }
+ *   undo       { assistsLeft }
+ *   gameover   { score, best, isNewBest, level }
  */
 
-import { BOARD_SIZE, TRAY_SLOTS, SCORING, HINTS_PER_GAME, STORAGE_KEY } from "./config.js";
+import { BOARD_SIZE, TRAY_SLOTS, ASSISTS_PER_GAME, STORAGE_KEY, FX } from "./config.js";
 import { randomTray } from "./pieces.js";
+import {
+  levelForLines,
+  levelConfig,
+  multiplierFor,
+  levelProgress as computeLevelProgress,
+} from "./difficulty.js";
+import { placementPoints, clearPoints, clearBonuses, levelUpBonus } from "./scoring.js";
+import { readNumber, write } from "./storage.js";
 import { Emitter } from "./emitter.js";
 
 function emptyBoard() {
   return Array.from({ length: BOARD_SIZE }, () => Array(BOARD_SIZE).fill(null));
 }
 
-function loadBest() {
-  const raw = localStorage.getItem(STORAGE_KEY);
-  const n = parseInt(raw ?? "0", 10);
-  return Number.isFinite(n) ? n : 0;
-}
-
 export class Game extends Emitter {
-  constructor() {
+  /** `rng` is injectable so tests can run the game deterministically. */
+  constructor({ rng = Math.random } = {}) {
     super();
-    this.best = loadBest();
+    this.rng = rng;
+    this.best = readNumber(STORAGE_KEY, 0);
     this.reset();
   }
 
   reset() {
     this.board = emptyBoard();
-    this.tray = randomTray(TRAY_SLOTS);
     this.score = 0;
     this.combo = 0;
-    this.hintsLeft = HINTS_PER_GAME;
+    this.linesCleared = 0;
+    this.level = 1;
+    this.assistsLeft = ASSISTS_PER_GAME;
     this.over = false;
+    this._undo = null;
+
+    this._refillTray();
+
     this.emit("reset", {});
     this.emit("tray", { tray: this.tray, refilled: true });
     this.emit("score", { score: 0, delta: 0, best: this.best, isNewBest: false });
+    this.emit("assists", { assistsLeft: this.assistsLeft, canUndo: false });
   }
 
   // ---------- queries ----------
@@ -65,9 +79,19 @@ export class Game extends Emitter {
     return true;
   }
 
+  /** How much every point is currently worth. */
+  get multiplier() {
+    return multiplierFor(this.level);
+  }
+
+  /** 0 → 1 through the current level, for the header progress bar. */
+  get levelProgress() {
+    return computeLevelProgress(this.linesCleared);
+  }
+
   /**
    * Look ahead without changing anything.
-   * Powers both the drag preview and the hint system.
+   * Powers the drag preview, the tap preview and the hint system.
    */
   previewPlacement(piece, originR, originC) {
     if (!this.canPlace(piece, originR, originC)) {
@@ -89,15 +113,10 @@ export class Game extends Emitter {
       clearRows,
       clearCols,
       lines,
-      points: this.pointsForClear(lines, this.combo + 1),
+      points:
+        placementPoints(cells.length, this.level) +
+        clearPoints(lines, this.combo + 1, this.level),
     };
-  }
-
-  pointsForClear(lines, comboStep) {
-    if (lines === 0) return 0;
-    const base = SCORING.pointsPerLine * lines * lines;
-    const bonus = comboStep > 1 ? base * SCORING.comboBonusPerStep * (comboStep - 1) : 0;
-    return Math.round(base + bonus);
   }
 
   anyPlacementExists(piece) {
@@ -115,6 +134,56 @@ export class Game extends Emitter {
     return !active.some((p) => this.anyPlacementExists(p));
   }
 
+  // ---------- tap to place ----------
+
+  /**
+   * Where the piece's top-left corner goes if you want it centred on the
+   * square you tapped. Pure arithmetic — no legality check.
+   */
+  centerOrigin(piece, row, col) {
+    return {
+      row: row - Math.floor((piece.height - 1) / 2),
+      col: col - Math.floor((piece.width - 1) / 2),
+    };
+  }
+
+  /**
+   * The legal origin closest to the square you tapped, or null if nothing
+   * within `radius` works.
+   *
+   * Tapping means you can't be as precise as dragging, so the game meets
+   * you halfway: it tries the centred position first and then spirals
+   * outward a square at a time.
+   */
+  snapOrigin(piece, row, col, radius = FX.snapRadius) {
+    if (!piece) return null;
+    const centre = this.centerOrigin(piece, row, col);
+
+    for (let ring = 0; ring <= radius; ring++) {
+      let bestAtRing = null;
+      let bestDistance = Infinity;
+
+      for (let dr = -ring; dr <= ring; dr++) {
+        for (let dc = -ring; dc <= ring; dc++) {
+          // only the outer edge of this ring — inner ones were done already
+          if (Math.max(Math.abs(dr), Math.abs(dc)) !== ring) continue;
+
+          const origin = { row: centre.row + dr, col: centre.col + dc };
+          if (!this.canPlace(piece, origin.row, origin.col)) continue;
+
+          // among equals prefer the true nearest, so the snap feels honest
+          const distance = dr * dr + dc * dc;
+          if (distance < bestDistance) {
+            bestDistance = distance;
+            bestAtRing = origin;
+          }
+        }
+      }
+      if (bestAtRing) return bestAtRing;
+    }
+    return null;
+  }
+
   // ---------- actions ----------
 
   place(slot, originR, originC) {
@@ -122,19 +191,26 @@ export class Game extends Emitter {
     const piece = this.tray[slot];
     if (!this.canPlace(piece, originR, originC)) return false;
 
+    this._undo = this._snapshot();
+
     const cells = piece.cells.map(([dr, dc]) => [originR + dr, originC + dc]);
     for (const [r, c] of cells) this.board[r][c] = piece.color;
 
     this.tray[slot] = null;
-    this._addScore(cells.length * SCORING.pointsPerCell);
-    this.emit("place", { slot, piece, origin: { row: originR, col: originC }, cells });
+    this.trayPlacements++;
+
+    const points = placementPoints(cells.length, this.level);
+    this._addScore(points);
+    this.emit("place", { slot, piece, origin: { row: originR, col: originC }, cells, points });
 
     this._resolveClears();
 
     // refill only once the whole tray is spent
     const refilled = this.tray.every((p) => !p);
-    if (refilled) this.tray = randomTray(TRAY_SLOTS);
+    if (refilled) this._refillTray();
     this.emit("tray", { tray: this.tray, refilled });
+
+    this.emit("assists", { assistsLeft: this.assistsLeft, canUndo: this.canUndo() });
 
     if (this.isGameOver()) {
       this.over = true;
@@ -142,6 +218,8 @@ export class Game extends Emitter {
         score: this.score,
         best: this.best,
         isNewBest: this.score >= this.best && this.score > 0,
+        level: this.level,
+        canUndo: this.canUndo(),
       });
     }
     return true;
@@ -174,36 +252,141 @@ export class Game extends Emitter {
     }
 
     this.combo++;
-    const points = this.pointsForClear(lines, this.combo);
+    this.trayClears++;
+
+    const points = clearPoints(lines, this.combo, this.level);
     this._addScore(points);
 
-    this.emit("clear", {
-      rows, cols, snapshot, cells, lines, points, combo: this.combo,
+    this.emit("clear", { rows, cols, snapshot, cells, lines, points, combo: this.combo });
+
+    // ----- the extras -----
+    const bonuses = clearBonuses({
+      rows,
+      cols,
+      boardEmpty: this.isBoardEmpty(),
+      flawlessTray: this.trayPlacements === TRAY_SLOTS && this.trayClears === TRAY_SLOTS,
+      level: this.level,
     });
+    for (const bonus of bonuses) {
+      this._addScore(bonus.points);
+      this.emit("bonus", bonus);
+    }
+
+    // ----- difficulty ladder -----
+    this.linesCleared += lines;
+    const nextLevel = levelForLines(this.linesCleared);
+    if (nextLevel > this.level) {
+      const previous = this.level;
+      this.level = nextLevel;
+      const bonus = levelUpBonus(nextLevel);
+      this._addScore(bonus);
+      this.emit("levelup", {
+        level: nextLevel,
+        previous,
+        multiplier: levelConfig(nextLevel).multiplier,
+        bonus,
+      });
+    }
+  }
+
+  isBoardEmpty() {
+    return this.board.every((row) => row.every((cell) => !cell));
+  }
+
+  _refillTray() {
+    const cfg = levelConfig(this.level);
+    const accepts = cfg.guaranteeFit
+      ? (tray) => tray.some((piece) => this.anyPlacementExists(piece))
+      : null;
+
+    this.tray = randomTray(TRAY_SLOTS, { level: this.level, accepts, rng: this.rng });
+    this.trayPlacements = 0;
+    this.trayClears = 0;
   }
 
   _addScore(delta) {
-    if (delta === 0) return;
+    if (!delta) return;
     this.score += delta;
     let isNewBest = false;
     if (this.score > this.best) {
       this.best = this.score;
-      localStorage.setItem(STORAGE_KEY, String(this.best));
+      write(STORAGE_KEY, this.best);
       isNewBest = true;
     }
     this.emit("score", { score: this.score, delta, best: this.best, isNewBest });
   }
 
-  /** Spends one hint. Returns the suggestion, or null if none available. */
+  // ---------- assists: 3 per game, spend them however you like ----------
+
+  /** Spends one assist on a hint. Returns the suggestion, or null. */
   useHint(finder) {
-    if (this.hintsLeft <= 0 || this.over) return null;
+    if (this.assistsLeft <= 0 || this.over) return null;
     const move = finder(this);
     if (!move) return null;
 
-    this.hintsLeft--;
-    const payload = { ...move, hintsLeft: this.hintsLeft };
+    this.assistsLeft--;
+    const payload = { ...move, assistsLeft: this.assistsLeft };
     this.emit("hint", payload);
+    this.emit("assists", { assistsLeft: this.assistsLeft, canUndo: this.canUndo() });
     return payload;
+  }
+
+  /** One step back is available, and you can afford it. */
+  canUndo() {
+    return this._undo !== null && this.assistsLeft > 0;
+  }
+
+  /**
+   * Takes back the last placement — and only the last one. The snapshot
+   * is dropped afterwards, so you can never rewind two moves in a row.
+   * Costs one assist, out of the same pot as the hints.
+   */
+  undo() {
+    if (!this.canUndo()) return false;
+
+    this._restore(this._undo);
+    this._undo = null;
+    this.assistsLeft--;
+
+    this.emit("undo", { assistsLeft: this.assistsLeft, level: this.level });
+    this.emit("tray", { tray: this.tray, refilled: false });
+    this.emit("score", {
+      score: this.score,
+      delta: 0,
+      best: this.best,
+      isNewBest: false,
+    });
+    this.emit("assists", { assistsLeft: this.assistsLeft, canUndo: false });
+    return true;
+  }
+
+  _snapshot() {
+    return {
+      board: this.board.map((row) => row.slice()),
+      tray: this.tray.slice(),
+      score: this.score,
+      best: this.best,
+      combo: this.combo,
+      linesCleared: this.linesCleared,
+      level: this.level,
+      trayPlacements: this.trayPlacements,
+      trayClears: this.trayClears,
+      over: this.over,
+    };
+  }
+
+  _restore(state) {
+    this.board = state.board.map((row) => row.slice());
+    this.tray = state.tray.slice();
+    this.score = state.score;
+    this.best = state.best;
+    this.combo = state.combo;
+    this.linesCleared = state.linesCleared;
+    this.level = state.level;
+    this.trayPlacements = state.trayPlacements;
+    this.trayClears = state.trayClears;
+    this.over = state.over;
+    write(STORAGE_KEY, this.best);
   }
 }
 

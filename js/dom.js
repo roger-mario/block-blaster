@@ -17,11 +17,19 @@ export const el = {
   combo: document.getElementById("combo"),
   hintBtn: document.getElementById("hintBtn"),
   hintCount: document.getElementById("hintCount"),
+  undoBtn: document.getElementById("undoBtn"),
+  undoCount: document.getElementById("undoCount"),
+  levelBadge: document.getElementById("levelBadge"),
+  levelValue: document.getElementById("levelValue"),
+  levelMult: document.getElementById("levelMult"),
+  levelBar: document.getElementById("levelBar"),
   dragLayer: document.getElementById("dragLayer"),
   overlay: document.getElementById("overlay"),
   finalScore: document.getElementById("finalScore"),
+  finalLevel: document.getElementById("finalLevel"),
   newBest: document.getElementById("newBest"),
   restartBtn: document.getElementById("restartBtn"),
+  overlayUndoBtn: document.getElementById("overlayUndoBtn"),
 };
 
 export const CELL_INSET = 1.5; // must match the .cell margin in styles.css

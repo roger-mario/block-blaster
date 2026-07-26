@@ -5,8 +5,9 @@
  * game rules of its own.
  */
 
-import { BOARD_SIZE, FX } from "./config.js";
+import { BOARD_SIZE, FX, TIMING } from "./config.js";
 import { el, cellEls, cellSize } from "./dom.js";
+import { MAX_LEVEL } from "./difficulty.js";
 
 // ---------- board ----------
 
@@ -26,7 +27,7 @@ export function renderBoard(board) {
   }
 }
 
-// ---------- drag preview ----------
+// ---------- placement preview ----------
 
 const PREVIEW_CLASSES = ["preview-ok", "preview-bad", "will-clear", "will-clear-new"];
 
@@ -40,10 +41,11 @@ export function clearPreview() {
 }
 
 /**
- * Shows where the dragged piece would land.
+ * Shows where the piece would land — used by both the drag and the
+ * tap-to-place preview.
  *
  * When the placement would complete lines, every cell in those lines
- * lights up so you can see the clear coming before you let go.
+ * lights up so you can see the clear coming before you commit.
  */
 export function showPreview(preview, piece, origin) {
   clearPreview();
@@ -73,6 +75,14 @@ export function showPreview(preview, piece, origin) {
   for (const c of preview.clearCols) for (let r = 0; r < BOARD_SIZE; r++) markLine(r, c);
 
   el.board.classList.add("clear-imminent");
+}
+
+/** Brief red pulse when a tap lands somewhere the piece can't go. */
+let rejectTimer = null;
+export function flashInvalidDrop() {
+  el.board.classList.add("tap-reject");
+  clearTimeout(rejectTimer);
+  rejectTimer = setTimeout(() => el.board.classList.remove("tap-reject"), 260);
 }
 
 // ---------- hint ----------
@@ -138,7 +148,7 @@ export function buildPieceElement(piece, blockPx, { animated = false } = {}) {
 
 /**
  * Draws the three tray slots.
- * `onPointerDown(slot, event)` is called when a slot is grabbed.
+ * `onPointerDown(slot, event)` is called when a slot is pressed.
  */
 export function renderTray(tray, onPointerDown, { animate = false } = {}) {
   el.tray.innerHTML = "";
@@ -160,6 +170,14 @@ export function hideTraySlot(slot) {
   if (slotEl) slotEl.style.visibility = "hidden";
 }
 
+/** Lights up the tray slot the player tapped. Pass null to clear. */
+export function markSelectedSlot(slot) {
+  [...el.tray.children].forEach((slotEl, index) => {
+    slotEl.classList.toggle("selected", index === slot);
+  });
+  el.app.classList.toggle("has-selection", slot !== null);
+}
+
 // ---------- stats ----------
 
 export function renderScore(score) {
@@ -170,15 +188,32 @@ export function renderBest(best) {
   el.best.textContent = best;
 }
 
-export function renderHints(hintsLeft) {
-  el.hintCount.textContent = hintsLeft;
-  el.hintBtn.disabled = hintsLeft <= 0;
+/** Level badge, ×multiplier and the progress bar under the header. */
+export function renderLevel(level, progress, multiplier) {
+  el.levelValue.textContent = level;
+  el.levelMult.textContent = `×${multiplier.toFixed(2).replace(/\.?0+$/, "")}`;
+  el.levelBar.style.width = `${Math.round(progress * 100)}%`;
+  el.levelBadge.classList.toggle("maxed", level >= MAX_LEVEL);
+}
+
+/**
+ * Hints and undo share one pool of assists, so both buttons show the same
+ * number — spend it whichever way you like.
+ */
+export function renderAssists(assistsLeft, canUndo) {
+  el.hintCount.textContent = assistsLeft;
+  el.undoCount.textContent = assistsLeft;
+  el.hintBtn.disabled = assistsLeft <= 0;
+  el.undoBtn.disabled = !canUndo;
+  el.overlayUndoBtn.disabled = !canUndo;
+  el.overlayUndoBtn.style.display = canUndo ? "" : "none";
 }
 
 // ---------- overlay ----------
 
-export function showGameOver({ score, isNewBest }) {
+export function showGameOver({ score, isNewBest, level }) {
   el.finalScore.textContent = `Score: ${score}`;
+  el.finalLevel.textContent = `Reached level ${level}`;
   el.newBest.style.display = isNewBest ? "block" : "none";
   el.overlay.classList.add("show");
 }
@@ -187,4 +222,4 @@ export function hideGameOver() {
   el.overlay.classList.remove("show");
 }
 
-export { FX };
+export { FX, TIMING };

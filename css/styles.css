@@ -94,33 +94,123 @@ header {
   100% { transform: scale(1); }
 }
 
-/* hint button */
+/* ---------- level badge + progress ---------- */
 
-#hintBtn {
+.level {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  padding: 5px 14px;
+  border-radius: 100px;
+  background: var(--surface-strong);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+  transition: box-shadow 0.3s ease, background 0.3s ease;
+}
+
+.level.maxed {
+  background: linear-gradient(135deg, rgba(255, 210, 63, 0.22), rgba(255, 120, 60, 0.22));
+  box-shadow: inset 0 0 0 1px rgba(255, 210, 63, 0.6);
+}
+
+.level-top {
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: var(--text);
+}
+
+.level-top span { color: var(--gold); }
+
+.level-mult {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-dim);
+}
+
+#levelTrack {
+  height: 4px;
+  margin: 8px 8px 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.07);
+  overflow: hidden;
+}
+
+#levelBar {
+  height: 100%;
+  width: 0%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #4da6f2, #ffd23f);
+  transition: width 0.45s cubic-bezier(0.2, 0.8, 0.3, 1);
+}
+
+/* ---------- assist buttons (hints + undo share one pool) ---------- */
+
+#assists {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.assist-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+#assists button {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 9px 15px;
+  padding: 8px 14px;
   border: none;
   border-radius: 100px;
   background: linear-gradient(135deg, #ffd23f, #ff9f43);
   color: #2a1a00;
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 800;
   font-family: inherit;
-  box-shadow: 0 4px 14px rgba(255, 180, 60, 0.3);
+  box-shadow: 0 4px 14px rgba(255, 180, 60, 0.28);
   transition: transform 0.15s ease, opacity 0.2s ease;
 }
 
-#hintBtn:active:not(:disabled) { transform: scale(0.93); }
+/* the id alone would lose to `#assists button` above — keep both parts */
+#assists #undoBtn {
+  background: linear-gradient(135deg, #7fb8ff, #4d7ff2);
+  color: #041028;
+  box-shadow: 0 4px 14px rgba(80, 140, 255, 0.28);
+}
 
-#hintBtn:disabled {
+#assists #undoBtn:disabled {
   background: var(--surface-strong);
   color: rgba(255, 255, 255, 0.3);
   box-shadow: none;
 }
 
-#hintBtn .bulb { font-size: 16px; line-height: 1; }
+#assists button:active:not(:disabled) { transform: scale(0.93); }
+
+#assists button:disabled {
+  background: var(--surface-strong);
+  color: rgba(255, 255, 255, 0.3);
+  box-shadow: none;
+}
+
+#assists .glyph { font-size: 15px; line-height: 1; }
+
+#assists .pill {
+  min-width: 18px;
+  padding: 1px 5px;
+  border-radius: 100px;
+  background: rgba(0, 0, 0, 0.22);
+  font-size: 12px;
+  text-align: center;
+}
+
+#assists button:disabled .pill { background: rgba(0, 0, 0, 0.2); }
 
 /* combo badge floats over the board */
 
@@ -143,6 +233,18 @@ header {
   white-space: nowrap;
 }
 
+#combo.bonus {
+  background: linear-gradient(135deg, #7ef2c3, #35c9f2);
+  color: #00291f;
+  box-shadow: 0 4px 18px rgba(80, 230, 200, 0.45);
+}
+
+#combo.levelup {
+  background: linear-gradient(135deg, #ffe27a, #ff6ba8);
+  color: #2a0018;
+  box-shadow: 0 4px 22px rgba(255, 120, 180, 0.5);
+}
+
 #combo.show { animation: comboIn 1.05s ease-out forwards; }
 
 @keyframes comboIn {
@@ -158,7 +260,7 @@ header {
 #board-wrap {
   position: relative;
   flex: 0 0 auto;
-  margin-top: 18px;
+  margin-top: 12px;
   display: flex;
   justify-content: center;
 }
@@ -179,6 +281,38 @@ header {
 /* the board itself glows when a drop would clear a line */
 #board.clear-imminent {
   box-shadow: 0 0 0 2px rgba(255, 220, 90, 0.55), 0 0 34px rgba(255, 200, 60, 0.35);
+}
+
+/* a piece is picked up and waiting for you to tap a square */
+#app.has-selection #board {
+  box-shadow: 0 0 0 2px rgba(120, 190, 255, 0.4);
+  cursor: crosshair;
+}
+
+/* you tapped somewhere the piece simply can't go */
+#board.tap-reject { animation: tapReject 0.26s ease-out; }
+
+@keyframes tapReject {
+  0%, 100% { box-shadow: 0 0 0 2px rgba(255, 80, 80, 0); }
+  40%      { box-shadow: 0 0 0 3px rgba(255, 90, 90, 0.85), 0 0 26px rgba(255, 60, 60, 0.35); }
+}
+
+/* the difficulty ladder just ticked up */
+#board.level-flash { animation: levelFlash 0.9s ease-out; }
+
+@keyframes levelFlash {
+  0%   { box-shadow: 0 0 0 2px rgba(255, 210, 63, 0), inset 0 0 0 rgba(255, 210, 63, 0); }
+  25%  { box-shadow: 0 0 0 4px rgba(255, 210, 63, 0.9), inset 0 0 60px rgba(255, 190, 90, 0.35); }
+  100% { box-shadow: 0 0 0 2px rgba(255, 210, 63, 0), inset 0 0 0 rgba(255, 210, 63, 0); }
+}
+
+/* a move was taken back */
+#board.undo-flash { animation: undoFlash 0.5s ease-out; }
+
+@keyframes undoFlash {
+  0%   { filter: brightness(1); }
+  35%  { filter: brightness(1.35) saturate(0.6); }
+  100% { filter: brightness(1); }
 }
 
 .cell {
@@ -365,8 +499,20 @@ header {
   flex: 1;
   display: flex;
   gap: 10px;
-  margin-top: 22px;
+  margin-top: 14px;
 }
+
+#tapHint {
+  margin: 8px 0 0;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--text-dim);
+  transition: opacity 0.2s ease;
+}
+
+#app.has-selection #tapHint { opacity: 0; }
 
 .tray-slot {
   flex: 1;
@@ -381,6 +527,19 @@ header {
 
 .tray-slot.hint-slot {
   animation: hintSlotPulse 1s ease-in-out infinite;
+}
+
+/* the piece you tapped, waiting to be dropped on the board */
+.tray-slot.selected {
+  background: rgba(120, 190, 255, 0.16);
+  box-shadow: inset 0 0 0 2px rgba(120, 190, 255, 0.9), 0 0 22px rgba(90, 160, 255, 0.35);
+}
+
+.tray-slot.selected .piece { animation: selectedFloat 1.4s ease-in-out infinite; }
+
+@keyframes selectedFloat {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50%      { transform: translateY(-4px) scale(1.06); }
 }
 
 @keyframes hintSlotPulse {
@@ -460,6 +619,22 @@ header {
   font-weight: 700;
 }
 
+/* second chance: spend an assist to take the fatal move back */
+.ghost-btn {
+  margin-top: 20px;
+  padding: 11px 26px;
+  border: none;
+  border-radius: 100px;
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.22);
+}
+
+.ghost-btn:disabled { display: none; }
+
 /* ---------- accessibility ---------- */
 
 @media (prefers-reduced-motion: reduce) {
@@ -475,7 +650,14 @@ header {
   .cell.will-clear,
   .cell.will-clear-new,
   .cell.hint-cell,
-  .tray-slot.hint-slot { animation-duration: 0.01s; animation-iteration-count: 1; }
+  .tray-slot.hint-slot,
+  .tray-slot.selected .piece { animation-duration: 0.01s; animation-iteration-count: 1; }
+
+  #board.level-flash,
+  #board.undo-flash,
+  #board.tap-reject { animation: none; }
+
+  #levelBar { transition: none; }
 
   .cell.will-clear    { box-shadow: inset 0 0 0 3px rgba(255, 220, 90, 0.95); }
   .cell.hint-cell     { box-shadow: inset 0 0 0 3px rgba(255, 210, 63, 1); }

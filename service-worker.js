@@ -9,7 +9,7 @@
  * Bump CACHE_VERSION whenever you add or rename a file below.
  */
 
-const CACHE_VERSION = "blockdrop-v3";
+const CACHE_VERSION = "blockdrop-v4";
 
 const ASSETS = [
   "./",
@@ -22,6 +22,9 @@ const ASSETS = [
   "./js/config.js",
   "./js/emitter.js",
   "./js/pieces.js",
+  "./js/difficulty.js",
+  "./js/scoring.js",
+  "./js/storage.js",
   "./js/game.js",
   "./js/solver.js",
   "./js/dom.js",
@@ -31,8 +34,12 @@ const ASSETS = [
 ];
 
 self.addEventListener("install", (event) => {
+  // cached one at a time: addAll() throws the whole install away if a
+  // single file 404s, which would silently kill offline support.
   event.waitUntil(
-    caches.open(CACHE_VERSION).then((cache) => cache.addAll(ASSETS))
+    caches.open(CACHE_VERSION).then((cache) =>
+      Promise.all(ASSETS.map((url) => cache.add(url).catch(() => {})))
+    )
   );
   self.skipWaiting();
 });
