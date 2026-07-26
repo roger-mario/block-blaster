@@ -45,18 +45,30 @@ system, the three lifelines and what a drop is allowed to do.
 
 ## Going back a version
 
-Every release is tagged, so any of them can be brought back:
+Every release is pinned on a `release/*` branch that is never moved again,
+so any version can be brought back exactly as it shipped:
 
-```bash
-git tag -l                 # v0.0.4, v0.1.0, …
-```
+| Branch | Version |
+|---|---|
+| `release/v0.0.4` | the shared leaderboard release |
+| `release/v0.1.0` | lifelines, drag-only placement, rebalanced layout |
+
+Three ways back, easiest first:
 
 - **In Vercel** — Deployments → pick the older build → **Instant
-  Rollback**. The live URL points at it within seconds, and nothing in the
-  repo changes.
-- **In git** — `git revert -m 1 <merge-commit>` puts the previous version
-  back as a new commit, which redeploys itself. To go back wholesale
-  instead: `git checkout v0.0.4 -- .` on a branch, then push that.
+  Rollback**. The live URL points at it within seconds and nothing in the
+  repo changes. This is the one to reach for if you just don't like a
+  release.
+- **Undo the release commit** — `git revert -m 1 <merge-commit>` on `main`
+  puts the previous version back as a new commit, which redeploys itself.
+  The history of both versions is kept.
+- **Reset `main` wholesale** — `git checkout main && git reset --hard
+  release/v0.0.4 && git push --force-with-lease`. Blunt, and it throws
+  away the newer commits on `main`.
+
+(The same points are tagged `v0.0.4` and `v0.1.0` locally. The tags aren't
+on GitHub — this environment's git proxy rejects tag pushes — which is why
+the branches exist.)
 
 ---
 

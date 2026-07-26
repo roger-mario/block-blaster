@@ -14,10 +14,11 @@ A pass over everything the player actually touches: the assists are gone,
 replaced by three one-shot lifelines, and the screen has been rebalanced
 around the board.
 
-**Rolling back:** the previous release is tagged `v0.0.4`. In Vercel,
-Deployments → the 0.0.4 build → **Instant Rollback**. From a terminal,
-`git revert` the merge commit, or `git checkout v0.0.4 -- .` on a branch
-and push that.
+**Rolling back:** the previous release is pinned on the
+`release/v0.0.4` branch. Easiest route is Vercel → Deployments → the
+0.0.4 build → **Instant Rollback**; see
+[Going back a version](README.md#going-back-a-version) in the README for
+the git routes.
 
 ### Added
 
