@@ -11,9 +11,6 @@
 
 import { APP_VERSION } from "./config.js";
 import { el } from "./dom.js";
-import { THEME_ROTATION } from "./config.js";
-import { activeTheme, daysUntilRotation } from "./themes.js";
-import { sceneryForLevel } from "./sceneries.js";
 import {
   loadBoard,
   recordScore,
@@ -42,6 +39,18 @@ export function attachMenu(gameInstance) {
     const name = saveName(el.overlayNameInput.value);
     if (name) recordResult();
   });
+
+  // Restarting mid-game is a real want — you can tell a run is dead long
+  // before the game can. It closes the menu so you land straight back on
+  // a fresh board.
+  el.restartMenuBtn.addEventListener("click", () => {
+    game?.reset();
+    close();
+  });
+
+  // Game over used to offer only "Play Again", which threw away the one
+  // moment you actually care where you placed.
+  el.overlayBoardBtn.addEventListener("click", open);
 
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape" && el.menu.classList.contains("show")) close();
@@ -115,7 +124,6 @@ export function renderGameOverName() {
 // ---------- drawing the panel ----------
 
 async function render() {
-  renderThemes();
   renderPlayer();
   await renderScores();
 }
@@ -173,28 +181,6 @@ async function renderScores() {
     row.append(rank, who, lvl, score);
     el.scoreList.appendChild(row);
   });
-}
-
-/**
- * The Look section — a report, not a picker.
- *
- * Neither axis is the player's to choose, and that's the point: the theme
- * is a small event on a schedule and the scenery is a reward for getting
- * further. A dropdown would turn both into settings, and then nobody
- * would ever see the other nine.
- */
-function renderThemes() {
-  const theme = activeTheme();
-  const days = daysUntilRotation();
-  const scenery = sceneryForLevel(game?.level ?? 1);
-
-  el.themeWhen.textContent = `${days} day${days === 1 ? "" : "s"} left`;
-  el.themeStatus.textContent =
-    `${theme.name} — ${theme.blurb}. A new look every ${THEME_ROTATION.periodDays} days, ` +
-    `the same for everyone.`;
-  el.sceneryStatus.textContent = scenery
-    ? `Scenery: ${scenery.name}. The background changes every time you level up.`
-    : "";
 }
 
 function loadingRow() {

@@ -32,8 +32,8 @@ independently.
 |---|---|---|---|---|
 | 1 | Line clear | Clearing 1+ lines | Every clear, by tier | `celebrations.js` |
 | 2 | Board clear | Emptying the whole board | Every board clear | `celebrations.js` |
-| 3 | Scenery | — | **Level up** | `sceneries.js` |
-| 4 | Block design | — | Theme (calendar) | `themes.js` |
+| 3 | Scenery | — | **Level up · board clear** | `looks.js` |
+| 4 | Block design | — | **Level up · board clear** | `looks.js` |
 | 5 | Level up | Reaching a new level | Fixed, escalating | `effects.js` |
 
 ---
@@ -79,7 +79,7 @@ should be the loudest moment in it. **Locked until level 2** — a beginner
 who does it by accident on a nearly empty board hasn't earned it, and
 spending the best animation on that cheapens it.
 
-**Shipped:** `bloom`, `starburst`, `implode`, rotating.
+**Shipped:** `bloom`, `starburst`, `implode`, rotating. A board clear also advances the look, so the board you carry on with is a different colour from the one you cleared.
 
 **Ideas not built yet**
 - A held beat before it fires — a quarter-second of nothing reads as "wait
@@ -89,67 +89,80 @@ spending the best animation on that cheapens it.
 
 ---
 
-## 3. Scenery
+## 3 & 4. The look — scenery *and* blocks
 
-The background. **Changes on level up**, which is the point: it's the only
-visual proof you're getting further than last time. Ten of them, one per
-level, so reaching level 7 *looks* like level 7.
+These used to be two categories on two clocks: the background moved with
+your level, the blocks rotated on the calendar every three days. Both
+ideas were wrong.
 
-**Rules**
-- Nothing sharp. No hard edges anywhere — big blurs, soft radial falloff,
-  and a vignette so nothing ever meets the screen edge with a line.
-- Motion is slow enough to be background. If you notice it moving while
-  concentrating, it's too fast.
-- `transform` and `opacity` only, so it stays on the compositor and costs
-  nothing per frame.
+**The calendar was the mistake.** It changes the game while you *aren't*
+playing, so you never see it happen, and it has nothing to do with how
+you're doing. It's a notification, not a reward. Gone.
 
-**Not the player's choice.** Deliberately. It's a reward for progress; a
-picker would turn it into a settings screen and throw away the reason it
-exists.
+**A small change is worse than none.** Shifting the background a shade
+reads as a rendering glitch. If a look is going to change it has to be
+obvious — you look up and the game is somewhere else.
 
-**Ideas not built yet**
-- Weather that reacts to the board filling up (haze thickening as you run
-  out of room)
-- A different scenery family per theme, so the calendar and the ladder
-  compound
+So there is one axis now, twenty **looks**, and each one changes
+everything at once:
 
----
-
-## 4. Block design
-
-What the pieces themselves look like. Tied to the **theme**, which rotates
-on the calendar — roughly twice a week, the same for everyone on the same
-day.
-
-Blocks vary on three axes:
-
-| Axis | Range |
+| Part | Range |
 |---|---|
-| Palette | seven colours per theme |
-| Corner | soft to very round — never square |
-| Surface | `gloss`, `gem`, `candy`, `bubble` |
+| Palette | seven colours, all different per look |
+| Block surface | `gloss` `candy` `gem` `bubble` `matte` `neon` |
+| Background | three drifting blobs, a haze, one of four motions |
 
-The surface is what makes them feel like *objects* rather than coloured
-rectangles: a gem has a bevel and a facet, a candy has a fat soft
-highlight, a bubble has an off-centre specular dot.
+**Blocks are always rounded squares.** Varying the silhouette too —
+hexagons, diamonds, capsules — was built and then pulled. Two reasons
+worth remembering before anyone tries it again:
+
+- It fought the clear animations, which draw rounded squares whatever the
+  look. A hexagon board dissolving into square debris reads as a bug.
+- With the palette, the surface and the whole background already changing,
+  the shape was one change too many rather than the one that sold it.
+
+The surface still varies, which is enough to make a look feel *made of*
+something different without touching the silhouette.
+
+**What earns the next one — exactly two things:**
+
+- levelling up
+- clearing the whole board
+
+`lookIndex = (level - 1) + boardClears`. Deriving it rather than storing
+a counter means it can never drift out of step, and undo gets the right
+look back for free. There is no picker and no setting: it's a reward for
+progress, and a dropdown would turn it back into a settings screen.
+
+**Rules for a new look**
+- Nothing sharp in the background. Big blurs, soft radial falloff, and a
+  vignette so no layer ever meets the screen edge with a line.
+- Consecutive looks must repaint the blocks *and* the background, and
+  move either the surface or the motion — there's a test for it.
+- Don't reintroduce per-look block shapes without first changing what the
+  clear animations draw.
+- `transform` and `opacity` only in anything that runs per frame.
 
 **Ideas not built yet**
-- Seasonal one-offs (a pumpkin set in October, snow in December)
-- A block that reacts to being about to complete a line — a subtle lean
-  toward the gap
-- Rare "shiny" blocks worth extra, appearing a few times a game
+- A held beat on the swap: freeze for 200ms, *then* cross-fade
+- Looks that react to the board filling up rather than only to progress
+- Seasonal one-offs that jump the queue in December
+- Shape variation *including* matching debris in the clear animations —
+  the only version of that idea worth building
 
 ---
 
 ## 5. Level up
 
 The transition itself. Currently: a badge, a gold wash over the board, and
-the scenery changing underneath.
+the whole look changing underneath — see above. Twenty levels now, and the
+rungs get further apart as you climb, so a level up is worth more the
+later it lands.
 
 **Ideas not built yet**
 - The new scenery wiping in from one edge rather than cross-fading
 - A one-line preview of what just unlocked ("5-bars from here on")
-- Level 10 getting its own unique, never-repeated moment
+- Level 20 getting its own unique, never-repeated moment
 
 ---
 
@@ -160,9 +173,8 @@ work:
 
 | Idea | Status | Why it works |
 |---|---|---|
-| Theme rotation | **shipped** | A reason to open it on a day you weren't going to |
-| Scenery per level | **shipped** | Visible proof of progress |
-| "New look" notice | **shipped** | Rewards the return specifically |
+| A new look per level and per board clear | **shipped** | Visible, earned proof of progress |
+| "New look" notice | **shipped** | Names the thing you just earned |
 | Shared leaderboard | **shipped** | Someone else's number to beat |
 | Sound | not built | The single biggest missing multiplier on every effect here |
 | Daily challenge | not built | Same board for everyone; a reason to come back *today* |

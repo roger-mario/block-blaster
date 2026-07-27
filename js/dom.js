@@ -27,6 +27,8 @@ export const el = {
   finalLevel: document.getElementById("finalLevel"),
   newBest: document.getElementById("newBest"),
   restartBtn: document.getElementById("restartBtn"),
+  overlayBoardBtn: document.getElementById("overlayBoardBtn"),
+  restartMenuBtn: document.getElementById("restartMenuBtn"),
   overlayRank: document.getElementById("overlayRank"),
   overlayNameForm: document.getElementById("overlayNameForm"),
   overlayNameInput: document.getElementById("overlayNameInput"),
@@ -45,9 +47,6 @@ export const el = {
   scoreList: document.getElementById("scoreList"),
   boardScope: document.getElementById("boardScope"),
   boardNote: document.getElementById("boardNote"),
-  themeStatus: document.getElementById("themeStatus"),
-  themeWhen: document.getElementById("themeWhen"),
-  sceneryStatus: document.getElementById("sceneryStatus"),
 
   // theme
   scenery: document.getElementById("scenery"),

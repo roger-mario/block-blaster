@@ -19,21 +19,33 @@
   --text: #ffffff;
   --text-dim: rgba(255, 255, 255, 0.45);
   --gold: #ffd23f;
-  --cell-radius: 6px;
+  /* one corner radius for every look — blocks are always rounded squares */
+  --cell-radius: 9px;
   --block-gloss: rgba(255, 255, 255, 0.26);
   --scenery-1: rgba(77, 166, 242, 0.20);
   --scenery-2: rgba(179, 128, 242, 0.16);
   --scenery-3: rgba(89, 204, 204, 0.12);
 }
 
-/* a theme switch should glide, not snap */
-html { transition: background 0.6s ease; }
-
-body,
-#board,
-.cell,
-.level,
-.tray-slot { transition: background 0.5s ease, box-shadow 0.5s ease; }
+/*
+ * A look change should glide — but only then.
+ *
+ * This used to be an unconditional half-second transition on every cell,
+ * including `box-shadow`. The drag preview *is* a box-shadow, so every
+ * square you dragged across took 500ms to light up and another 500ms to
+ * fade, and the whole gesture felt like it was smearing along behind your
+ * finger. The transitions now only exist while `.look-swap` is on the
+ * page, which scenery.js adds for the length of the swap and then removes.
+ */
+html.look-swap,
+html.look-swap body,
+html.look-swap #board,
+html.look-swap .cell,
+html.look-swap .level,
+html.look-swap .tray-slot,
+html.look-swap .piece-cell {
+  transition: background 0.55s ease, box-shadow 0.55s ease, border-radius 0.55s ease;
+}
 
 * {
   box-sizing: border-box;
@@ -222,7 +234,7 @@ header {
 }
 
 .lifeline .glyph {
-  font-size: 19px;
+  font-size: 20px;
   line-height: 1;
 }
 
@@ -235,7 +247,7 @@ header {
   opacity: 0.55;
 }
 
-.lifeline.locked .glyph { filter: grayscale(1); }
+.lifeline.locked .glyph { filter: grayscale(0.55); }
 
 /* spent: crossed out and left in place, so you can see what you've used */
 .lifeline.used {
@@ -244,7 +256,7 @@ header {
   opacity: 0.4;
 }
 
-.lifeline.used .glyph { filter: grayscale(1); }
+.lifeline.used .glyph { filter: grayscale(0.75); }
 
 .lifeline.used::after {
   content: "";
@@ -727,15 +739,18 @@ header {
   left: 0;
   transform-origin: center;
   will-change: transform;
-  filter: drop-shadow(0 10px 12px rgba(0, 0, 0, 0.5));
-  transition: filter 0.12s ease;
+  /* No `filter` here on purpose — a drop-shadow over the whole group is
+     re-rasterised every time the ghost moves. The blocks inside carry
+     their own box-shadow instead, which the compositor can just move. */
 }
 
 /* the pieces inside the ghost get the "picked up" pop, not the ghost itself,
    so the pop can't fight with the transform that tracks your finger */
 .drag-ghost .piece-cell {
   animation: grabPop 0.14s cubic-bezier(0.3, 1.5, 0.5, 1);
-  box-shadow: inset 0 0 0 1px var(--block-gloss), 0 0 0 1px rgba(255, 255, 255, 0.18);
+  box-shadow:
+    inset 0 0 0 1px var(--block-gloss),
+    0 8px 12px rgba(0, 0, 0, 0.45);
 }
 
 @keyframes grabPop {
@@ -744,13 +759,21 @@ header {
 }
 
 /* the dragged piece glows when dropping it would clear a line */
-.drag-ghost.will-clear-ghost {
-  filter: drop-shadow(0 10px 12px rgba(0, 0, 0, 0.5)) drop-shadow(0 0 14px rgba(255, 220, 90, 0.95)) brightness(1.25);
+.drag-ghost.will-clear-ghost .piece-cell {
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.7),
+    0 0 14px rgba(255, 220, 90, 0.95),
+    0 8px 12px rgba(0, 0, 0, 0.45);
 }
 
 /* the landing preview should appear instantly, not ease in behind the piece */
+/* The preview has to appear the instant the piece crosses a square, and
+   vanish just as fast — any easing here reads as input lag. */
+.cell,
 .cell.preview-ok,
-.cell.preview-bad { transition: none; }
+.cell.preview-bad,
+.cell.will-clear,
+.cell.will-clear-new { transition: none; }
 
 /* ---------- game over ---------- */
 
@@ -835,6 +858,37 @@ header {
 }
 
 #overlayNameForm { width: min(320px, 80vw); }
+
+/* game-over actions sit side by side; Play Again is the primary one */
+.over-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.over-actions #restartBtn { margin-top: 0; }
+.over-actions .ghost-btn { margin-top: 0; }
+
+/* a full-width action inside a menu section */
+.menu-action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 12px;
+  border: none;
+  border-radius: 12px;
+  background: var(--surface-strong);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.menu-action:active { transform: scale(0.98); }
 
 /* ---------- burger menu ---------- */
 
@@ -1292,28 +1346,34 @@ header {
   }
 }
 
-/* ---------- block surfaces ---------- */
+/* ---------- block shape ---------- */
 
 /*
- * What a block is made of, not just what colour it is. The theme names
- * one; the block's own colour still comes through as the background, so
- * these are all overlays on top of it.
+ * Blocks are always rounded squares — one radius, set here and nowhere
+ * else.
  *
- * `.cell.filled` is the board, `.piece-cell` is the tray and the dragged
- * piece — both get the same treatment so a piece looks the same in your
- * hand as it does once it lands.
- */
-/*
- * No `position` here on purpose. `.cell` is already relative and
- * `.piece-cell` is absolutely positioned by render.js — forcing either one
- * would tear the tray layout apart. Both already establish a containing
- * block for the ::before overlay.
+ * Varying the silhouette per look (hexagons, diamonds, capsules) was
+ * tried in 0.3.0 and pulled. Two reasons: the clear animations draw
+ * rounded squares whatever the look, so a hexagon board dissolved into
+ * square debris; and with the scenery and palette already changing
+ * wholesale, the shape was one change too many rather than the one that
+ * sold it.
  */
 .cell.filled,
 .piece-cell {
   overflow: hidden;
+  border-radius: var(--cell-radius);
 }
 
+/* ---------- block surface ---------- */
+
+/*
+ * What a block is made of. The block's own colour is the background;
+ * these are all overlays on top of it, so one surface works for every
+ * palette. `.cell.filled` is the board and `.piece-cell` is the tray and
+ * the dragged piece — both get the same treatment, so a piece looks the
+ * same in your hand as it does once it lands.
+ */
 .cell.filled::before,
 .piece-cell::before {
   content: "";
@@ -1324,22 +1384,22 @@ header {
 }
 
 /* gloss — a clean sheet of glass, light from the top */
-:root[data-block="gloss"] .cell.filled::before,
-:root[data-block="gloss"] .piece-cell::before {
+:root[data-surface="gloss"] .cell.filled::before,
+:root[data-surface="gloss"] .piece-cell::before {
   background: linear-gradient(160deg, rgba(255, 255, 255, 0.38) 0%, rgba(255, 255, 255, 0.06) 46%, rgba(0, 0, 0, 0.16) 100%);
 }
 
 /* candy — fat soft highlight, like a boiled sweet */
-:root[data-block="candy"] .cell.filled::before,
-:root[data-block="candy"] .piece-cell::before {
+:root[data-surface="candy"] .cell.filled::before,
+:root[data-surface="candy"] .piece-cell::before {
   background:
     radial-gradient(60% 46% at 32% 24%, rgba(255, 255, 255, 0.62), transparent 70%),
     linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(0, 0, 0, 0.22));
 }
 
 /* gem — a cut stone: one bright facet, one dark one */
-:root[data-block="gem"] .cell.filled::before,
-:root[data-block="gem"] .piece-cell::before {
+:root[data-surface="gem"] .cell.filled::before,
+:root[data-surface="gem"] .piece-cell::before {
   background:
     linear-gradient(135deg, rgba(255, 255, 255, 0.5) 0%, transparent 42%),
     linear-gradient(310deg, rgba(0, 0, 0, 0.34) 0%, transparent 45%);
@@ -1347,12 +1407,33 @@ header {
 }
 
 /* bubble — off-centre specular dot and a lit rim */
-:root[data-block="bubble"] .cell.filled::before,
-:root[data-block="bubble"] .piece-cell::before {
+:root[data-surface="bubble"] .cell.filled::before,
+:root[data-surface="bubble"] .piece-cell::before {
   background:
     radial-gradient(38% 30% at 30% 26%, rgba(255, 255, 255, 0.85), transparent 62%),
     radial-gradient(120% 120% at 70% 80%, rgba(0, 0, 0, 0.3), transparent 60%);
   box-shadow: inset 0 0 8px rgba(255, 255, 255, 0.28);
+}
+
+/* matte — flat and chalky, no shine at all */
+:root[data-surface="matte"] .cell.filled::before,
+:root[data-surface="matte"] .piece-cell::before {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.1), rgba(0, 0, 0, 0.14));
+  box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.18);
+}
+
+/* neon — lit from inside, glowing at the edge */
+:root[data-surface="neon"] .cell.filled::before,
+:root[data-surface="neon"] .piece-cell::before {
+  background: radial-gradient(80% 80% at 50% 50%, rgba(255, 255, 255, 0.42), transparent 72%);
+  box-shadow:
+    inset 0 0 0 1.5px rgba(255, 255, 255, 0.75),
+    inset 0 0 12px rgba(255, 255, 255, 0.4);
+}
+
+:root[data-surface="neon"] .cell.filled,
+:root[data-surface="neon"] .piece-cell {
+  filter: saturate(1.2) brightness(1.05);
 }
 
 /* ---------- celebration: cascade ---------- */

@@ -1,165 +1,143 @@
 /**
- * scenery.js — paints the theme and the background.
+ * scenery.js — paints whatever looks.js decided.
  *
- * The DOM half of two separate axes (see ANIMATION-STRATEGY.md):
+ * The DOM half of the look framework. looks.js says *which* look is in
+ * force and what earns the next one; this file is the only thing that
+ * knows how a look reaches the page, which is: write the look's custom
+ * properties onto `:root`, set a data attribute for the block surface,
+ * and let the stylesheet do the rest.
  *
- *   theme    palette, block shape and block surface. Rotates on the
- *            calendar — the same for everyone on the same day.
- *   scenery  the background. Advances on **level up**, so getting further
- *            visibly looks different. Not a setting, not a choice.
- *
- * Both reach the page the same way: write custom properties onto `:root`
- * and let the stylesheet do the rest. Every colour in styles.css already
- * reads a variable, so neither axis needs any CSS of its own.
+ * That's why a new look needs no CSS at all — it's a data change in
+ * looks.js and nothing else.
  */
 
-import { THEME_ROTATION, TIMING } from "./config.js";
+import { LOOKS as LOOK_TIMING } from "./config.js";
 import { el } from "./dom.js";
-import { activeTheme, activePalette, consumeThemeChange } from "./themes.js";
-import { sceneryForLevel, sceneryChanges } from "./sceneries.js";
+import { lookFor, paletteFor } from "./looks.js";
 
-let currentTheme_ = null;
-let currentScenery = null;
+let current = null;
 const listeners = new Set();
 
-export function currentTheme() {
-  return currentTheme_;
-}
-
-export function currentScenerySpec() {
-  return currentScenery;
+export function currentLook() {
+  return current;
 }
 
 /**
- * Called with {from, to} palettes whenever the theme changes under a game
- * in progress, so main.js can restyle blocks already on the board.
+ * Called with {from, to} palettes when the look changes under a game in
+ * progress, so main.js can recolour blocks already on the board.
  */
-export function onThemeChange(handler) {
+export function onLookChange(handler) {
   listeners.add(handler);
   return () => listeners.delete(handler);
 }
 
-// ---------- the theme ----------
+/**
+ * Writes a look onto the document.
+ *
+ * `animate` turns the slow transitions on for the length of the swap and
+ * then takes them off again. They can't live in the stylesheet
+ * permanently: the drag preview is a `box-shadow`, and a half-second
+ * transition on it makes every square you drag across smear behind your
+ * finger.
+ */
+export function applyLook(look, { animate = false } = {}) {
+  if (!look) return null;
+  if (current && current.id === look.id) return look;
 
-export function applyTheme(theme) {
-  if (!theme) return null;
-
+  const previous = current;
   const root = document.documentElement;
-  for (const [name, value] of Object.entries(theme.vars)) {
+
+  if (animate) root.classList.add("look-swap");
+
+  for (const [name, value] of Object.entries(look.vars)) {
     root.style.setProperty(name, value);
   }
-  root.dataset.theme = theme.id;
-  // the block surface is a rendering treatment rather than a colour, so it
-  // gets its own attribute for the stylesheet to hang selectors on
-  root.dataset.block = theme.blockStyle ?? "gloss";
-
-  const meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) meta.setAttribute("content", theme.vars["--bg"] ?? "#0f1122");
-
-  currentTheme_ = theme;
-  return theme;
-}
-
-export function refreshTheme(date = new Date()) {
-  const before = activePalette();
-  const theme = applyTheme(activeTheme(date));
-  const after = activePalette();
-
-  if (before.join() !== after.join()) notify(before, after, theme);
-  return theme;
-}
-
-function notify(from, to, theme) {
-  for (const handler of [...listeners]) {
-    try {
-      handler({ from, to, theme });
-    } catch (error) {
-      console.error("theme change handler failed:", error);
-    }
-  }
-}
-
-// ---------- the scenery ----------
-
-/**
- * Paints the background for a level.
- *
- * `animate` cross-fades rather than cutting, which is what makes a level
- * up feel like the world changing rather than a repaint.
- */
-export function applyScenery(level, { animate = false } = {}) {
-  const scenery = sceneryForLevel(level);
-  if (!scenery) return null;
-  if (currentScenery && currentScenery.id === scenery.id) return scenery;
-
-  const root = document.documentElement;
-  const [one, two, three] = scenery.tint;
+  const [one, two, three] = look.scenery.tint;
   root.style.setProperty("--scenery-1", one);
   root.style.setProperty("--scenery-2", two);
   root.style.setProperty("--scenery-3", three);
-  root.style.setProperty("--scenery-haze", scenery.haze);
-  root.style.setProperty("--scenery-blur", `${scenery.blur}px`);
-  root.dataset.motion = scenery.motion;
+  root.style.setProperty("--scenery-haze", look.scenery.haze);
+  root.style.setProperty("--scenery-blur", `${look.scenery.blur}px`);
+
+  root.dataset.look = look.id;
+  root.dataset.surface = look.surface;
+  root.dataset.motion = look.scenery.motion;
+
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.setAttribute("content", look.vars["--bg"] ?? "#0f1122");
 
   if (animate && el.scenery) {
     el.scenery.classList.remove("swap");
     void el.scenery.offsetWidth; // restart the fade
     el.scenery.classList.add("swap");
-    setTimeout(() => el.scenery?.classList.remove("swap"), TIMING.sceneryFade);
   }
 
-  currentScenery = scenery;
-  return scenery;
+  if (animate) {
+    setTimeout(() => {
+      root.classList.remove("look-swap");
+      el.scenery?.classList.remove("swap");
+    }, LOOK_TIMING.swapMs);
+  }
+
+  current = look;
+  if (previous) notify(previous.blocks, look.blocks, look);
+  return look;
+}
+
+function notify(from, to, look) {
+  for (const handler of [...listeners]) {
+    try {
+      handler({ from, to, look });
+    } catch (error) {
+      console.error("look change handler failed:", error);
+    }
+  }
+}
+
+/** Paints the look a game state has earned. */
+export function applyLookFor(level, boardClears, options = {}) {
+  return applyLook(lookFor(level, boardClears), options);
 }
 
 /**
- * Level up: swap the background. Returns the new scenery, or null when
- * this level didn't actually change it.
+ * A level up or a board clear: swap the look with the full cross-fade.
+ * Returns the new look, or null if this didn't actually move the cycle on.
  */
-export function advanceScenery(previousLevel, level) {
-  if (!sceneryChanges(previousLevel, level)) return null;
-  return applyScenery(level, { animate: true });
+export function advanceLook(level, boardClears) {
+  const next = lookFor(level, boardClears);
+  if (current && current.id === next.id) return null;
+  return applyLook(next, { animate: true });
+}
+
+/** The palette in force right now. */
+export function currentPalette() {
+  return current?.blocks ?? paletteFor(1, 0);
 }
 
 // ---------- the notice ----------
 
-export function announceThemeChange(date = new Date()) {
-  const theme = consumeThemeChange(date);
-  if (!theme || !el.themeNotice) return null;
-  showNotice("New look", theme.name, theme.blurb, theme.blocks);
-  return theme;
-}
-
-/** The same pill, reused when the background advances. */
-export function announceScenery(scenery) {
-  if (!scenery || !el.themeNotice) return null;
-  showNotice("New scenery", scenery.name, `Level ${scenery.level}`, scenery.tint);
-  return scenery;
-}
-
 let noticeTimer = null;
 
-function showNotice(kind, name, blurb, colours) {
+/** The pill that names the new look. */
+export function announceLook(look, kind = "New look") {
+  if (!look || !el.themeNotice) return null;
+
   el.themeNoticeKind.textContent = kind;
-  el.themeNoticeName.textContent = name;
-  el.themeNoticeBlurb.textContent = blurb;
+  el.themeNoticeName.textContent = look.name;
+  el.themeNoticeBlurb.textContent = look.blurb;
 
   const dot = el.themeNotice.querySelector(".dot");
-  if (dot && colours?.length) {
-    dot.style.background = `linear-gradient(135deg, ${colours[0]}, ${colours[1] ?? colours[0]})`;
+  if (dot) {
+    dot.style.background = `linear-gradient(135deg, ${look.blocks[0]}, ${look.blocks[3] ?? look.blocks[1]})`;
   }
 
   el.themeNotice.classList.add("show");
   clearTimeout(noticeTimer);
-  noticeTimer = setTimeout(
-    () => el.themeNotice.classList.remove("show"),
-    THEME_ROTATION.noticeMs
-  );
+  noticeTimer = setTimeout(() => el.themeNotice.classList.remove("show"), LOOK_TIMING.noticeMs);
+  return look;
 }
 
-/** Boot: theme and background painted before anything else draws. */
-export function initScenery(level = 1) {
-  refreshTheme();
-  applyScenery(level);
-  setTimeout(() => announceThemeChange(), 600);
+/** Boot: paint the starting look before anything else draws. */
+export function initScenery(level = 1, boardClears = 0) {
+  return applyLookFor(level, boardClears);
 }

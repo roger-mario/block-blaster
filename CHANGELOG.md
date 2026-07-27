@@ -8,6 +8,77 @@ bump that, add an entry here, and bump `CACHE_VERSION` in
 
 ---
 
+## 0.3.0 — 2026-07-27
+
+Straight from player feedback.
+
+### Changed
+
+- **A whole new look on every level and every board clear.** The old split
+  — blocks on a three-day calendar, background on your level — is gone.
+  The calendar was the wrong hook: it changes the game while you *aren't*
+  playing, so you never see it happen, and it has nothing to do with how
+  you're doing.
+
+  One cycle now, **20 looks** (`js/looks.js`), and each advance changes
+  everything at once: the palette, the **shape** of the blocks, the
+  surface they're made of, and the background. A small shift reads as a
+  rendering glitch; the point is that you look up and the game is
+  somewhere else. There's a test that fails a look which differs from its
+  neighbour in fewer than three of those four.
+
+- **Blocks are made of different things, but always rounded squares.**
+  Six surfaces — `gloss`, `candy`, `gem`, `bubble`, `matte`, `neon` —
+  change what a block appears to be *made of* without touching its
+  silhouette.
+
+  Varying the silhouette as well (hexagons, diamonds, capsules) was built
+  during this release and pulled before shipping. It fought the clear
+  animations, which draw rounded squares whatever the look — a hexagon
+  board dissolving into square debris reads as a bug — and with the
+  palette and the whole background already changing, it was one change too
+  many rather than the one that sold it.
+
+- **Twenty levels instead of ten**, and the rungs get further apart as you
+  climb: 4 lines to reach level 2, 102 to get from 19 to 20. The first six
+  levels are exactly where they were — the opening was never the problem.
+
+- **Lifeline icons are emoji**: ⏪ Rewind and 🧹 Wipe. 🔀 Shuffle was
+  already right and hasn't moved. Locked lifelines are no longer fully
+  greyscaled either, which had turned them into unreadable smudges.
+
+- The menu's **Look** section is gone. It reported information nobody
+  needed.
+
+### Added
+
+- **Restart from the menu**, mid-game. You can tell a run is dead long
+  before the game can.
+- **A Leaderboard button on the Game Over screen**, next to Play Again.
+  Finishing a game is exactly the moment you care where you placed, and
+  the only thing on offer was starting another one.
+
+### Fixed
+
+- **Dragging is smooth again.** v0.2.0 put a half-second
+  `transition` on every cell so a look change would glide. The drag
+  preview *is* a `box-shadow`, so every square you dragged across took
+  500ms to light up and another 500ms to fade — the gesture visibly
+  smeared along behind your finger. The slow transitions now only exist
+  for the length of an actual look swap. Measured: cell transition is
+  `none` during play, `0.55s` during a swap.
+- The dragged piece no longer carries a `filter: drop-shadow`, which was
+  re-rasterising the whole group every frame it moved. The blocks inside
+  carry their own `box-shadow` instead, which the compositor just moves.
+
+### Removed
+
+- `js/themes.js` and `js/sceneries.js`, replaced by `js/looks.js`.
+- The three-day theme rotation, the "new look on your first visit today"
+  notice that came with it, and the stored theme preference.
+
+---
+
 ## 0.2.0 — 2026-07-27
 
 The visual framework. Five separate animation categories, each on its own

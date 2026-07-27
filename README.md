@@ -1,6 +1,6 @@
 # Block Drop
 
-**v0.2.0** — see [CHANGELOG.md](CHANGELOG.md) · how the visuals are planned: [ANIMATION-STRATEGY.md](ANIMATION-STRATEGY.md)
+**v0.3.0** — see [CHANGELOG.md](CHANGELOG.md) · how the visuals are planned: [ANIMATION-STRATEGY.md](ANIMATION-STRATEGY.md)
 
 A block-puzzle game that runs in the browser, installs to your iPhone home
 screen, and costs nothing to host. No Xcode, no Apple developer fee, no
@@ -53,6 +53,7 @@ so any version can be brought back exactly as it shipped:
 | `release/v0.0.4` | the shared leaderboard release |
 | `release/v0.1.0` | lifelines, drag-only placement, rebalanced layout |
 | `release/v0.2.0` | the visual framework — animations, scenery, block surfaces |
+| `release/v0.3.0` | 20 levels, a new look per level, smoother dragging |
 
 Three ways back, easiest first:
 
@@ -105,16 +106,15 @@ css/styles.css      all styling and keyframes
 api/scores.js       the shared leaderboard (Vercel serverless function)
 js/
   config.js         ← every tunable number lives here
-  difficulty.js     the level 1→10 ladder (pure maths)
+  difficulty.js     the level 1→20 ladder (pure maths)
   scoring.js        every point the game awards (pure maths)
   pieces.js         the shapes and their appearance curves
   dealer.js         picks your next three, reading the board
   emitter.js        tiny publish/subscribe helper
   storage.js        localStorage that can't throw
   leaderboard.js    names and scores, shared board + local fallback
-  themes.js         the look, and the calendar that rotates it
-  sceneries.js      the background, one per level
-  scenery.js        paints a theme onto the page
+  looks.js          the 20 looks, and what earns the next one
+  scenery.js        paints a look onto the page
   celebrations.js   which clear animation plays, and when
   game.js           all the rules. Never touches the DOM.
   solver.js         scores candidate moves (dev tool; see Debugging)
@@ -164,48 +164,57 @@ The events available are `reset`, `place`, `clear`, `bonus`, `levelup`,
 
 ## Features
 
-### The look, and how it changes
+### The look, and what earns it
 
-Four themes — Midnight, Sunset, Forest, Neon. Each one changes the
-background, the block palette, the **shape** of the blocks and the glow
-behind the board.
+Twenty **looks**. Each one changes four things at once — the block
+palette, the **shape** of the blocks, the surface they're made of, and the
+background behind them:
 
-The theme is chosen from the **calendar, not at random**. Everyone playing
-on the same day sees the same one and it holds for three days
-(`THEME_ROTATION.periodDays`) before moving on. That's the whole idea: a
-look that changed every game would be noise, and one that never changed
-would be wallpaper. Rotating slowly makes it something you notice on the
-way back.
+| Part | Range |
+|---|---|
+| Palette | seven colours, all different per look |
+| Surface | `gloss` `candy` `gem` `bubble` `matte` `neon` |
+| Background | three drifting blobs, a haze, one of four motions |
 
-The first time you open the game after the rotation has moved on, a notice
-says so — once per rotation, and never for anyone who has picked a theme
-by hand.
+**Blocks are always rounded squares** — one radius, set once in
+`styles.css`. Per-look silhouettes were tried and pulled: they fought the
+clear animations, which draw rounded squares whatever the look.
 
-The **Look** section of the menu shows every theme as a card of its own
-colours, and how long the current one has left. "Auto" is a card too, so
-the rotation is one of the choices rather than a setting to find. Picking
-a theme mid-game restyles the blocks already on the board as well as the
-ones still to come.
+**Exactly two things move you to the next look:**
 
-#### Adding a theme
+- levelling up
+- clearing the whole board
 
-One object in `js/themes.js` and nothing else:
+`lookIndex = (level - 1) + boardClears`. It's derived rather than stored,
+so it can't drift out of step with the game, and undo gets the right look
+back for free.
+
+There is **no picker**, deliberately. A look is a reward for progress; a
+dropdown turns it into a settings screen, and then nobody ever sees the
+other nineteen. It used to rotate on the calendar instead — that was
+worse, because it changed the game while you weren't playing, so you never
+saw it happen.
+
+When it swaps, the blocks already on the board are recoloured to the
+matching slot in the new palette rather than left behind, and a pill names
+the look you just earned.
+
+#### Adding a look
+
+One object in `js/looks.js` and nothing else:
 
 ```js
-{
-  id: "ice",
-  name: "Ice",
-  blurb: "Pale blue, sharp edges",
-  vars: { "--bg": "#0a1420", /* …the same keys every theme sets… */ },
-  blocks: ["#8ad8ff", /* …seven colours… */],
-}
+look("ice", "Ice", "Pale blue, cut sharp", "gem",
+  { "--bg": "#0a1420", /* …the same keys every look sets… */ },
+  ["#8ad8ff", /* …seven colours… */],
+  { motion: "sway", blur: 70, haze: "radial-gradient(…)", tint: [/* three */] })
 ```
 
-No CSS. Every colour in `styles.css` already reads from a custom property,
-and `scenery.js` writes the theme's values onto `:root` at boot. A test
-enforces that a new theme sets exactly the same variables and a full
-palette, so a half-finished one fails the suite rather than shipping a
-half-styled page.
+No CSS. Every colour in `styles.css` reads a custom property, and
+`scenery.js` writes the look's values onto `:root`. Tests enforce that a
+new look sets the same variables, carries a full palette, uses a known
+surface, and **repaints both the blocks and the background** relative to
+its neighbour — a look that's only a nudge fails the suite.
 
 ### Clear animations
 
@@ -290,24 +299,28 @@ cause **2** class changes; eight moves that each cross a square cause
 The piece also no longer floats above a **mouse** cursor — that lift only
 makes sense for a fingertip, which covers what it's holding.
 
-### Difficulty: ten levels
+### Difficulty: twenty levels
 
 Your level is driven by **total lines cleared**, not score — otherwise the
 later multipliers would rocket you up the ladder without you playing any
 better. Reaching a level changes two things at once:
 
-| Level | Lines to reach | New arrivals | Points × |
+| Level | Lines to reach | Step | Points × |
 |---|---|---|---|
-| 1 | 0 | dot, dominoes, triples, corners | 0.60 |
-| 2 | 4 | 2×2 square | 0.80 |
-| 3 | 10 | 4-bars | 1.00 |
-| 4 | 18 | **5-bars**, T-pieces | 1.25 |
-| 5 | 28 | 2×3 rectangles | 1.50 |
-| 6 | 40 | big L-pieces | 1.80 |
-| 7 | 54 | S, Z and the 3×3 block | 2.20 |
-| 8 | 70 | — | 2.60 |
-| 9 | 88 | — | 3.00 |
-| 10 | 108 | — | 3.50 |
+| 1 | 0 | — | 0.60 |
+| 2 | 4 | 4 | 0.80 |
+| 3 | 10 | 6 | 1.00 |
+| 4 | 18 | 8 | 1.25 |
+| 5 | 28 | 10 | 1.50 |
+| 6 | 40 | 12 | 1.80 |
+| 10 | 119 | 25 | 3.20 |
+| 15 | 318 | 52 | 5.80 |
+| 20 | 718 | 102 | 10.00 |
+
+The rungs get further apart as you climb — 4 lines to reach level 2, 102
+to get from 19 to 20. The first six levels are exactly where they always
+were; the opening pace was never the problem, so all ten extra levels went
+on the end.
 
 The header shows the level and a bar filling toward the next one. The
 multiplier itself isn't displayed — it's a number you can't act on, and
@@ -544,15 +557,14 @@ Almost everything is in `js/config.js`:
 | `APP_VERSION` | the version shown on the page and in the menu |
 | `BOARD_SIZE` | grid dimensions (8 = classic) |
 | `LIFELINES` | the three lifelines: icon, label, and the levels each is available at |
-| `LEVELS` | the difficulty ladder — thresholds, multipliers, `clearChance` |
+| `LEVELS` | the 20-rung ladder — thresholds, multipliers, `clearChance` |
 | `COLORS` | the block palette |
 | `SCORING` | per cell, per line, combo, and all four bonuses |
 | `DEALER.rescuePower` | how fast a filling board earns you a way out |
 | `DEALER.fitBoost` | preference for shapes that fit the board right now |
 | `DEALER.crowdPenalty` | how hard duplicate shapes in one tray are damped |
+| `LOOKS.swapMs` | how long a look change takes to cross-fade |
 | `LEADERBOARD_SIZE` | how many scores the table keeps |
-| `THEME_ROTATION.periodDays` | how long one look holds before the next |
-| `THEME_ROTATION.noticeMs` | how long the "new look" notice stays up |
 | `FX.dragLift` | how far the piece sits above your finger (touch) |
 | `FX.dragScale` | how much a picked-up piece swells |
 | `FX.tapSlop` | how far a press may move before it becomes a drag |

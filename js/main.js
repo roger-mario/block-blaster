@@ -17,13 +17,13 @@ import { PlacementController } from "./input.js";
 import { attachMenu, recordResult, renderGameOverName } from "./menu.js";
 import {
   initScenery,
-  currentTheme,
-  onThemeChange,
-  applyScenery,
-  advanceScenery,
-  announceScenery,
+  applyLookFor,
+  advanceLook,
+  announceLook,
+  onLookChange,
+  currentLook,
 } from "./scenery.js";
-import { remapColour } from "./themes.js";
+import { remapColour } from "./looks.js";
 
 const game = new Game();
 
@@ -35,6 +35,15 @@ function drawTray(animate = false) {
   render.renderTray(game.tray, (slot, event) => input.start(slot, event), { animate });
 }
 
+/**
+ * Advances to the look this game state has earned and names it. Silent if
+ * the cycle didn't actually move on.
+ */
+function swapLook() {
+  const look = advanceLook(game.level, game.stats.perfectClears);
+  if (look) setTimeout(() => announceLook(look), 800);
+}
+
 function drawLevel() {
   render.renderLevel(game.level, game.levelProgress);
 }
@@ -42,7 +51,7 @@ function drawLevel() {
 // ---------- game events ----------
 
 game.on("reset", () => {
-  applyScenery(game.level);
+  applyLookFor(game.level, game.stats.perfectClears);
   fx.clearAllFx();
   input.cancel();
   render.hideGameOver();
@@ -70,17 +79,16 @@ game.on("bonus", ({ type, label, points }) => {
   // emptying the board gets its own animation on top of the line clear
   if (type === "perfect") {
     setTimeout(() => fx.playBoardClearFx(game.level), TIMING.boardSyncDelay + 120);
+    // clearing the board earns the next look, same as levelling up
+    setTimeout(swapLook, TIMING.boardSyncDelay + 420);
   }
 });
 
-game.on("levelup", ({ level, previous }) => {
+game.on("levelup", ({ level }) => {
   drawLevel();
   fx.playLevelUpFx(level);
-
-  // the background is the visible proof you got further — see
-  // ANIMATION-STRATEGY.md, category 3
-  const scenery = advanceScenery(previous, level);
-  if (scenery) setTimeout(() => announceScenery(scenery), 900);
+  // every level is a whole new look — see js/looks.js
+  swapLook();
 });
 
 game.on("score", ({ score, best, isNewBest, delta }) => {
@@ -157,7 +165,7 @@ render.mountLifelines((id) => {
 
 // Picking a theme mid-game restyles what's already down, not just what
 // gets dealt next.
-onThemeChange(({ from, to }) => {
+onLookChange(({ from, to }) => {
   game.recolour((colour) => remapColour(colour, from, to));
   render.renderBoard(game.board);
   drawTray();
@@ -175,7 +183,7 @@ window.addEventListener("resize", () => {
 
 // The theme lands first: everything below reads the colours it sets, so
 // painting it afterwards would show one frame of the wrong palette.
-initScenery(game.level);
+initScenery(game.level, game.stats.perfectClears);
 
 buildBoardCells();
 attachMenu(game);
@@ -212,5 +220,5 @@ if ("serviceWorker" in navigator && !isLocal) {
 // handy while developing — open the browser console and poke at these:
 //   blockdrop.game.board          inspect the grid
 //   blockdrop.findBestPlacement(blockdrop.game)   ask the solver for a move
-window.blockdrop = { game, input, findBestPlacement, render, fx, currentTheme };
+window.blockdrop = { game, input, findBestPlacement, render, fx, currentLook };
 window.game = game;

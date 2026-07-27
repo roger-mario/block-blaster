@@ -19,10 +19,28 @@ import { SHAPES, shapePoolFor, pickShape, shapeWeightAt } from "../js/pieces.js"
 import { dealTray } from "../js/dealer.js";
 import { newGame, piece, setBoard, rowWithGap, seededRng, gridlock, emptyBoard } from "./helpers.js";
 
-test("the ladder runs from 1 to 10", () => {
+test("the ladder runs from 1 to 20", () => {
   assert.equal(MIN_LEVEL, 1);
-  assert.equal(MAX_LEVEL, 10);
-  assert.equal(LEVELS.length, 10);
+  assert.equal(MAX_LEVEL, 20);
+  assert.equal(LEVELS.length, 20);
+});
+
+test("the rungs get further apart as you climb", () => {
+  const gaps = LEVELS.slice(1).map((row, i) => row.linesToReach - LEVELS[i].linesToReach);
+
+  for (let i = 1; i < gaps.length; i++) {
+    assert.ok(gaps[i] >= gaps[i - 1], `level ${i + 2} is at least as far as the last`);
+  }
+  assert.ok(gaps[0] <= 5, `the first step is still quick (${gaps[0]} lines)`);
+  assert.ok(gaps.at(-1) >= 50, `the last step is a real climb (${gaps.at(-1)} lines)`);
+});
+
+test("the first levels are where they always were", () => {
+  // the opening pace was never the problem; the extra levels went on the end
+  assert.deepEqual(
+    LEVELS.slice(0, 6).map((l) => l.linesToReach),
+    [0, 4, 10, 18, 28, 40]
+  );
 });
 
 test("each level is harder and pays better than the one before", () => {

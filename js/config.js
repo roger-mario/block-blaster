@@ -6,21 +6,25 @@
  */
 
 /** Shown in the menu. Bump it whenever you ship — and add a CHANGELOG entry. */
-export const APP_VERSION = "0.2.0";
+export const APP_VERSION = "0.3.0";
 
 /**
- * The look, and how often it changes.
+ * The look — palette, block shape, block surface and scenery, all at once.
  *
- * Themes rotate on a fixed schedule rather than at random: the same theme
- * for everyone on the same day, holding for `periodDays`. Rare enough to
- * be a small event, frequent enough to be worth coming back for. See
- * themes.js.
+ * It used to rotate on the calendar, every three days. That was the wrong
+ * hook: it changes when you *aren't* playing, so you never see it happen,
+ * and it has nothing to do with how well you're doing. Now a look is
+ * earned. It advances on two events and only those:
+ *
+ *   levelling up
+ *   clearing the whole board
+ *
+ * Both are moments you already feel; the look change is the reward
+ * attached to them. See js/looks.js.
  */
-export const THEME_ROTATION = {
-  periodDays: 3,        // how long one look holds before the next
-  autoValue: "auto",    // the stored value meaning "follow the rotation"
-  seenKey: "blockdrop-theme-seen", // last rotation the player was shown
-  noticeMs: 2600,       // how long the "new look" notice stays up
+export const LOOKS = {
+  noticeMs: 2600,   // how long the "new look" pill stays up
+  swapMs: 700,      // the cross-fade, and how long transitions stay enabled
 };
 
 export const BOARD_SIZE = 8;
@@ -40,7 +44,7 @@ export const TRAY_SLOTS = 3;
 export const LIFELINES = [
   {
     id: "undo",
-    icon: "↩",
+    icon: "⏪",
     label: "Rewind",
     tip: "Take back your last move",
     maxLevel: 5,
@@ -53,7 +57,7 @@ export const LIFELINES = [
   },
   {
     id: "wipe",
-    icon: "💥",
+    icon: "🧹",
     label: "Wipe",
     tip: "Sweep the whole board clean",
     minLevel: 5,
@@ -87,7 +91,12 @@ export const SCORING = {
 };
 
 /**
- * Difficulty ladder, level 1 → 10.
+ * Difficulty ladder, level 1 → 20.
+ *
+ * The rungs get further apart as you climb: 4 lines to reach level 2, but
+ * 102 to get from 19 to 20. The first six levels are exactly where they
+ * always were, so the opening still feels quick — everything past that is
+ * where the extra 10 levels went.
  *
  *   linesToReach  total lines cleared needed to arrive at this level
  *   multiplier    every point you earn is scaled by this
@@ -101,16 +110,26 @@ export const SCORING = {
  * peak at level 5 and fade away again by level 9.
  */
 export const LEVELS = [
-  { level: 1,  linesToReach: 0,   multiplier: 0.6,  clearChance: 0.90, guaranteeFit: true },
-  { level: 2,  linesToReach: 4,   multiplier: 0.8,  clearChance: 0.85, guaranteeFit: true },
-  { level: 3,  linesToReach: 10,  multiplier: 1.0,  clearChance: 0.80, guaranteeFit: true },
-  { level: 4,  linesToReach: 18,  multiplier: 1.25, clearChance: 0.70, guaranteeFit: true },
-  { level: 5,  linesToReach: 28,  multiplier: 1.5,  clearChance: 0.62, guaranteeFit: true },
-  { level: 6,  linesToReach: 40,  multiplier: 1.8,  clearChance: 0.55, guaranteeFit: true },
-  { level: 7,  linesToReach: 54,  multiplier: 2.2,  clearChance: 0.48, guaranteeFit: true },
-  { level: 8,  linesToReach: 70,  multiplier: 2.6,  clearChance: 0.42, guaranteeFit: true },
-  { level: 9,  linesToReach: 88,  multiplier: 3.0,  clearChance: 0.36, guaranteeFit: true },
-  { level: 10, linesToReach: 108, multiplier: 3.5,  clearChance: 0.30, guaranteeFit: true },
+  { level: 1,  linesToReach: 0,    multiplier: 0.6,   clearChance: 0.90, guaranteeFit: true },
+  { level: 2,  linesToReach: 4,    multiplier: 0.8,   clearChance: 0.85, guaranteeFit: true },
+  { level: 3,  linesToReach: 10,   multiplier: 1.0,   clearChance: 0.80, guaranteeFit: true },
+  { level: 4,  linesToReach: 18,   multiplier: 1.25,  clearChance: 0.74, guaranteeFit: true },
+  { level: 5,  linesToReach: 28,   multiplier: 1.5,   clearChance: 0.68, guaranteeFit: true },
+  { level: 6,  linesToReach: 40,   multiplier: 1.8,   clearChance: 0.62, guaranteeFit: true },
+  { level: 7,  linesToReach: 55,   multiplier: 2.1,   clearChance: 0.57, guaranteeFit: true },
+  { level: 8,  linesToReach: 73,   multiplier: 2.4,   clearChance: 0.52, guaranteeFit: true },
+  { level: 9,  linesToReach: 94,   multiplier: 2.8,   clearChance: 0.48, guaranteeFit: true },
+  { level: 10, linesToReach: 119,  multiplier: 3.2,   clearChance: 0.44, guaranteeFit: true },
+  { level: 11, linesToReach: 148,  multiplier: 3.6,   clearChance: 0.41, guaranteeFit: true },
+  { level: 12, linesToReach: 182,  multiplier: 4.1,   clearChance: 0.38, guaranteeFit: true },
+  { level: 13, linesToReach: 221,  multiplier: 4.6,   clearChance: 0.36, guaranteeFit: true },
+  { level: 14, linesToReach: 266,  multiplier: 5.2,   clearChance: 0.34, guaranteeFit: true },
+  { level: 15, linesToReach: 318,  multiplier: 5.8,   clearChance: 0.32, guaranteeFit: true },
+  { level: 16, linesToReach: 378,  multiplier: 6.5,   clearChance: 0.30, guaranteeFit: true },
+  { level: 17, linesToReach: 447,  multiplier: 7.2,   clearChance: 0.29, guaranteeFit: true },
+  { level: 18, linesToReach: 526,  multiplier: 8.0,   clearChance: 0.28, guaranteeFit: true },
+  { level: 19, linesToReach: 616,  multiplier: 8.8,   clearChance: 0.27, guaranteeFit: true },
+  { level: 20, linesToReach: 718,  multiplier: 10.0,  clearChance: 0.25, guaranteeFit: true },
 ];
 
 /**
@@ -185,7 +204,6 @@ export const STORAGE_KEY = "blockdrop-best";
 export const LEADERBOARD_KEY = "blockdrop-leaderboard";
 export const PLAYER_KEY = "blockdrop-player";
 export const PLAYER_ID_KEY = "blockdrop-player-id";
-export const THEME_KEY = "blockdrop-theme";
 
 /** How many entries the leaderboard keeps. */
 export const LEADERBOARD_SIZE = 10;

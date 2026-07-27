@@ -23,7 +23,7 @@
  */
 
 import { BOARD_SIZE, DEALER, TRAY_SLOTS } from "./config.js";
-import { activePalette } from "./themes.js";
+import { paletteFor } from "./looks.js";
 import { levelConfig } from "./difficulty.js";
 import { SHAPES, shapeWeightAt, shapePoolFor, pieceFromShape, weightedPick } from "./pieces.js";
 
@@ -143,8 +143,8 @@ export function shapeWeights(level, board = null) {
  * Block colours come from the active theme, not a fixed list, so a theme
  * change restyles the pieces as well as the page.
  */
-function pickColor(rng) {
-  const palette = activePalette();
+function pickColor(rng, level, boardClears) {
+  const palette = paletteFor(level, boardClears);
   return palette[Math.floor(rng() * palette.length) % palette.length];
 }
 
@@ -154,7 +154,7 @@ function pickColor(rng) {
  * @param {number} count
  * @param {{level:number, board:string[][], rng?:Function}} options
  */
-export function dealTray(count = TRAY_SLOTS, { level = 1, board = null, rng = Math.random } = {}) {
+export function dealTray(count = TRAY_SLOTS, { level = 1, board = null, rng = Math.random, boardClears = 0 } = {}) {
   const cfg = levelConfig(level);
   const entries = shapeWeights(level, board);
 
@@ -177,7 +177,7 @@ export function dealTray(count = TRAY_SLOTS, { level = 1, board = null, rng = Ma
     ensureAWayOut(drawn, entries, level, board, rng);
   }
 
-  return drawn.map(({ shape }) => pieceFromShape(shape, pickColor(rng)));
+  return drawn.map(({ shape }) => pieceFromShape(shape, pickColor(rng, level, boardClears)));
 }
 
 /**

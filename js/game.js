@@ -301,6 +301,7 @@ export class Game extends Emitter {
       level: this.level,
       board: this.board,
       rng: this.rng,
+      boardClears: this.stats.perfectClears,
     });
     this.trayPlacements = 0;
     this.trayClears = 0;

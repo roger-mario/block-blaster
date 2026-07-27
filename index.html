@@ -99,7 +99,10 @@
          role="group" aria-label="Lifelines you can still use"></div>
   </div>
 
-  <button id="restartBtn" type="button">Play Again</button>
+  <div class="over-actions">
+    <button id="restartBtn" type="button">Play Again</button>
+    <button id="overlayBoardBtn" type="button" class="ghost-btn">🏆 Leaderboard</button>
+  </div>
 </div>
 
 <!-- ---------- burger menu ---------- -->
@@ -124,12 +127,6 @@
       <p class="hint quiet" id="boardNote"></p>
     </section>
 
-    <section>
-      <h3>Look <span class="tag" id="themeWhen"></span></h3>
-      <p class="hint" id="themeStatus"></p>
-      <p class="hint quiet" id="sceneryStatus"></p>
-    </section>
-
     <section class="how-section">
       <h3>How to play</h3>
       <p class="how">
@@ -138,9 +135,17 @@
       </p>
       <p class="how">
         Three lifelines, once each per game:
-        <b>↩ Rewind</b> (up to level 5) · <b>🔀 Shuffle</b> ·
-        <b>💥 Wipe</b> (level 5+).
+        <b>⏪ Rewind</b> (up to level 5) · <b>🔀 Shuffle</b> ·
+        <b>🧹 Wipe</b> (level 5+).
       </p>
+    </section>
+
+    <section>
+      <h3>This game</h3>
+      <button id="restartMenuBtn" type="button" class="menu-action">
+        <span aria-hidden="true">🔄</span> Restart game
+      </button>
+      <p class="hint quiet">Starts over from level 1. Your best score is kept.</p>
     </section>
 
     <p class="menu-foot" id="menuVersion">Block Drop</p>
