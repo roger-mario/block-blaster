@@ -97,9 +97,16 @@ test("the 5-bars are common once they arrive, not a rarity", () => {
   const penta = byName("penta-h");
   assert.ok(penta.from <= 5, "5-bars arrive by level 5");
 
+  // measured against an even share rather than a fixed percentage: the
+  // vocabulary grows between releases, and "as common as everything else"
+  // would quietly become the passing bar if this were a flat number
   const { share } = sample(8);
+  const par = 1 / shapePoolFor(8).length;
   const bars = share("penta-h") + share("penta-v");
-  assert.ok(bars > 0.12, `5-bars were only ${(bars * 100).toFixed(1)}% of level 8 draws`);
+  assert.ok(
+    bars > 3 * par,
+    `5-bars were ${(bars * 100).toFixed(1)}% of level 8 draws, par is ${(par * 100).toFixed(1)}%`
+  );
 });
 
 test("tiny pieces stop dominating as you climb", () => {

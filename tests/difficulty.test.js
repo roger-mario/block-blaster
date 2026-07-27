@@ -16,7 +16,7 @@ import {
   multiplierFor,
 } from "../js/difficulty.js";
 import { SHAPES, shapePoolFor, pickShape, shapeWeightAt } from "../js/pieces.js";
-import { dealTray } from "../js/dealer.js";
+import { dealTray } from "../js/dealer/index.js";
 import { newGame, piece, setBoard, rowWithGap, seededRng, gridlock, emptyBoard } from "./helpers.js";
 
 test("the ladder runs from 1 to 20", () => {

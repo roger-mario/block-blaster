@@ -15,7 +15,7 @@ import {
   shapeClearsLine,
   rescueChance,
   shapeOdds,
-} from "../js/dealer.js";
+} from "../js/dealer/index.js";
 import { seededRng, emptyBoard, boardFrom, rowWithGap, gridlock, newGame } from "./helpers.js";
 
 const dot = [[0, 0]];

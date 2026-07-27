@@ -29,7 +29,7 @@ import {
   LIFELINE_BY_ID,
   STORAGE_KEY,
 } from "./config.js";
-import { dealTray } from "./dealer.js";
+import { dealTray } from "./dealer/index.js";
 import {
   levelForLines,
   levelConfig,
@@ -292,9 +292,10 @@ export class Game extends Emitter {
   }
 
   /**
-   * The dealer reads the board, not just the level — see dealer.js. That's
-   * what stops a tray of pieces that fit nowhere, and what makes a nearly
-   * full board hand you a way out.
+   * The board is the dealer's main input, not the level — see `js/dealer/`
+   * and DEALER-STRATEGY.md. That's what stops a tray you can't play out,
+   * what makes a nearly full board hand you a way out, and what puts a
+   * whole-board clear within reach often enough to be worth chasing.
    */
   _refillTray() {
     this.tray = dealTray(TRAY_SLOTS, {

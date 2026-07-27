@@ -6,7 +6,7 @@
  */
 
 /** Shown in the menu. Bump it whenever you ship — and add a CHANGELOG entry. */
-export const APP_VERSION = "0.3.0";
+export const APP_VERSION = "0.4.0";
 
 /**
  * The look — palette, block shape, block surface and scenery, all at once.
@@ -133,23 +133,47 @@ export const LEVELS = [
 ];
 
 /**
- * How the tray is dealt (see dealer.js).
+ * How the tray is dealt — see `js/dealer/` and DEALER-STRATEGY.md.
  *
- * The dealer looks at the board you actually have, not just your level.
- * Two knobs matter most:
- *
- *   rescuePower  how hard a filling board pushes the odds of a
- *                line-clearing piece back up. At full pressure even
- *                level 10 nearly always offers you a way out.
- *   fitBoost     shapes that can be placed somewhere are preferred over
- *                shapes that can't fit anywhere at all.
+ * The premise: there are no easy or hard shapes, only shapes that are
+ * easy or hard *on the board in front of you*. So the dealer scores every
+ * unlocked shape against the grid you actually have, and difficulty is
+ * how hard it works on your behalf — not which shapes it may reach for.
  */
 export const DEALER = {
-  rescuePower: 1.5,     // exponent on board pressure; lower = kinder sooner
-  fitBoost: 6,          // × weight for a shape that fits the current board
-  clearBoost: 2.5,      // × weight again if it can finish a line right now
-  crowdPenalty: 0.55,   // × weight for repeating a shape already in the tray
-  maxDealAttempts: 12,
+  // ---- the difficulty dial: how much the dealer helps you build ----
+  generosityFloor: 0.12, // where generosity lands at the top of the ladder
+  generosityCurve: 0.85, // <1 spends the drop early, >1 saves it for late
+  biasStrength: 5,       // how hard full generosity leans toward helping you
+  spiteStrength: 2.2,    // …and how much more gently it ever leans the other way
+  flavourPull: 0.5,      // exponent on the pieces.js level curve: a nudge, not a rule
+
+  // ---- the rescue dial: how often you're handed a way out ----
+  rescuePower: 1.2,      // exponent on board pressure; lower = kinder sooner
+  sequenceFloor: 0.55,   // odds the whole tray is guaranteed playable, at level 20
+  repairTries: 6,        // alternatives tried per slot when repairing a stuck tray
+  solveBudget: 4000,     // search nodes before the sequence check gives up and says yes
+
+  // ---- what the dealer values, once it's decided how much to help ----
+  clearPull: 2.0,        // × per line a piece can finish right now
+  multiPull: 2.5,        // extra for a piece that can take two lines at once
+  sweepPull: 2.2,        // extra for finishing a line a whole-board clear needs
+  perfectPull: 6,        // extra for a piece that can empty the board outright
+  helpFloor: 0.35,       // clearing bonuses never fall below this, at any level
+  crowdPenalty: 0.45,    // × weight for repeating a shape already in the tray
+  flexibility: 0.25,     // how much "this piece has lots of homes" is worth
+  flexibleAt: 24,        // …and how many placements counts as lots
+
+  // ---- reading a board (boardHealth) ----
+  health: {
+    room: 1.2,           // space left to work with
+    concentration: 0.9,  // blocks gathered into lines that are nearly done
+    contiguity: 0.7,     // empty space in one area rather than confetti
+    hole: 0.09,          // per one-cell pocket — only a dot will ever fill it
+    tiny: 0.05,          // per two- or three-cell pocket
+  },
+  sweepMaxLines: 4,      // a whole-board clear needing more lines than this isn't "in reach"
+  healthProbes: 9,      // placements per shape measured properly rather than ranked cheaply
 };
 
 export const TIMING = {

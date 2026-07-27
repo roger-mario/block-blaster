@@ -108,8 +108,14 @@ js/
   config.js         ← every tunable number lives here
   difficulty.js     the level 1→20 ladder (pure maths)
   scoring.js        every point the game awards (pure maths)
-  pieces.js         the shapes and their appearance curves
-  dealer.js         picks your next three, reading the board
+  pieces.js         the shapes, and a level curve that flavours the mix
+  dealer/           picks your next three by reading the board
+    index.js        the public API — dealTray()
+    board.js        reading a grid: health, regions, sweep plan
+    placement.js    where a shape goes, and whether a tray can be played out
+    evaluate.js     scoring one shape against one board
+    compose.js      building a tray slot by slot, and the guarantees
+    dials.js        the two knobs difficulty actually turns
   emitter.js        tiny publish/subscribe helper
   storage.js        localStorage that can't throw
   leaderboard.js    names and scores, shared board + local fallback
@@ -127,6 +133,7 @@ js/
 tests/              node --test suite, no dependencies
 CHANGELOG.md        what changed in each version
 ANIMATION-STRATEGY.md  the visual plan — read before adding an effect
+DEALER-STRATEGY.md  which pieces you get and why — read before touching js/dealer/
 service-worker.js   offline support + cache busting
 ```
 
@@ -326,62 +333,107 @@ The header shows the level and a bar filling toward the next one. The
 multiplier itself isn't displayed — it's a number you can't act on, and
 the level it comes from is right there.
 
-#### Each shape has its own curve
+#### There are no easy or hard pieces
 
-A single "hardest shape allowed" number per level only ever grows the
-grab-bag — you keep drawing single squares at level 10, and the pieces
-that are actually fun stay buried. So every shape in `pieces.js` now owns
-an appearance curve instead:
+This is the part 0.4.0 rewrote, and the reasoning is worth the paragraph.
+
+Every shape used to carry a `difficulty` rating, and the dealer's job was
+to roll the level's dice and hand out more of the hard ones as you climbed.
+That model is wrong in a way you can feel while playing. A 5-bar is the
+best piece in the game when a row is three from complete and a lane is
+open for it; the same 5-bar is a disaster when your empty space is four
+separate pockets. A single square is trivial filler on an open board and
+the most valuable piece in the game when a row needs exactly one cell.
+
+**A shape has no difficulty of its own. It only has a value on the board
+in front of you.** So the dealer scores every unlocked shape against your
+actual grid — where it can go, how healthy a board its best placement
+leaves behind, how many lines it can finish, whether it moves you toward
+emptying the whole thing, and how many choices it gives you.
+
+The appearance curve in `pieces.js` didn't go away, but it's now a
+*prior*, not the decision, and it enters the weighting raised to the power
+0.5 so it nudges rather than dictates:
 
 | Field | Meaning |
 |---|---|
-| `from` | first level it can appear at all |
+| `from` | first level it can appear at all — the one part still doing real work, so level 1 isn't handed a 3×3 |
 | `peak` | level where it reaches full weight (it eases in before that) |
 | `fade` | level it starts becoming rarer again |
 | `floor` | how rare it gets once faded — never zero |
-| `weight` | its pull relative to every other shape |
+| `weight` | its pull relative to every other shape, so a level keeps a recognisable texture |
+| `difficulty` | a label for humans reading the table. Nothing reads it to decide anything. |
 
-What that buys, measured over 20,000 draws per level in the tests:
+There are **39 shapes**. A board-aware dealer gets better with a bigger
+vocabulary, not worse — more shapes means a better chance that something
+in the pool is exactly what this board needs.
 
-- **Dots are no longer a flood.** Under 12% of level-1 draws, and they
-  never dominate — but they never disappear either, because a single
-  square is often the only way out of a tight board.
-- **Dominoes and triples fade.** Everywhere at level 1, down past a
-  quarter of their peak by level 10.
-- **The 5-bars arrive at level 4 and stay generous** (`weight: 1.45`, the
-  highest in the game). Half a row in one move is the most satisfying
-  piece in the game and it was far too rare before.
-- **S, Z and the 3×3 stay rare forever** — together under 20% of level-10
-  draws. They're the pieces that wreck boards; they should be a spike in
-  difficulty, not the background.
-- Average piece size climbs smoothly from **2.4 cells at level 1 to 4.2 at
-  level 10**.
+#### Difficulty is how hard the dealer works for you
 
-The menu shows this live: **Pieces right now** draws every shape unlocked
-at your level with its exact percentage, straight from the same weights
-the dealer uses.
+Not what it's allowed to reach for. Two dials, kept deliberately separate:
 
-#### The dealer reads your board
+**Generosity** runs from 1.0 at level 1 to 0.12 at level 20 and becomes an
+exponent on the board evaluation. At the bottom the dealer actively hunts
+for the pieces that leave your board in the best shape. Around level 10
+it's indifferent and the flavour curve decides. At the top it stops doing
+you favours. It's never as spiteful as it is generous — in a game with no
+rotation, always handing over the single worst piece isn't difficult, it's
+a rigged deck. The board is what gets harder, because the dealer stops
+tidying it for you.
 
-`dealer.js` doesn't just roll the level's dice — it looks at the board you
-actually have:
+**Rescue** is the level's `clearChance` (90% at level 1, 25% at level 20),
+pushed toward certainty by how full your board is. The clearing bonus
+never inverts however stingy the level gets, so a late board is hard to
+*manage* rather than hard to *escape*.
 
-- **Nothing dead.** A tray where no piece fits anywhere isn't difficulty,
-  it's a coin flip you lost. If the draw produces one, a slot is swapped
-  for something playable. Over 39,000 dealt trays in simulation: zero
-  dead hands.
-- **A way to clean up.** If the roll says so and nothing you've been dealt
-  can finish a line, a slot is swapped for one that can. The odds start
-  at the level's `clearChance` (90% at level 1, 30% at level 10) and are
-  pushed up by how full the board is — so at real pressure even level 10
-  nearly always offers an out.
-- **Variety.** Repeats within one tray are damped, so three of a kind is
-  under 2% of deals.
+#### A tray is composed, not rolled
 
-This deliberately doesn't make the game *easier*, only fairer. Auto-playing
-300 games with the solver, turning the rescue off entirely changes the
-median game from 338 moves to 311 — skill still decides everything. What
-it removes is the death you had no move against.
+The three slots are drawn one at a time, and after each pick the board is
+advanced to how it would look if that piece were played *well* — so the
+next slot is chosen against that. It's a small rule with a large effect:
+the dealer can hand you a piece that sets a row up and a second piece that
+finishes it. Combos, doubles and whole-board sweeps come out of it.
+
+Then three promises are checked against the real board:
+
+- **Something fits.** A tray where no piece can be placed isn't
+  difficulty, it's a coin flip you lost. On at all 20 levels.
+- **A way out.** If the roll says so and nothing you've been dealt can
+  finish a line, a slot is swapped for one that can.
+- **Playable in sequence.** *New in 0.4.0.* The old check asked whether
+  each piece fit the board as it stood, which misses the piece that fits
+  today and has nowhere to go once the first one is down. The tray is now
+  searched for an order in which all three can actually be placed, and
+  slots are swapped until one exists. Level-scaled: certain early, about
+  58% at level 20, because at the top the risk of boxing yourself in is
+  part of the difficulty.
+
+#### Clearing the whole board
+
+The best moment in this kind of game, and until 0.4.0 it was an accident
+you noticed afterwards. The dealer now works out which rows and columns
+would, if they all cleared, empty the board outright. When that cover is
+small enough to be real, it prefers pieces that finish those exact lines,
+and pays a large bonus to anything that can sweep the board in one move.
+The size of that nudge fades as you climb, so a perfect clear is handed to
+you early and earned late.
+
+Auto-playing 60 games with the solver, same seeds, before and after:
+
+| | 0.3.0 | 0.4.0 |
+|---|---|---|
+| games that saw a perfect clear | 5% | **48%** |
+| perfect clears per game | 0.05 | **1.07** |
+| median moves per game | 464 | 818 |
+| median lines cleared | 213 | 396 |
+| median level reached | 12 | 16 |
+
+Across 3,000 sampled trays on mid-game boards: zero dead hands, and every
+one playable in some order.
+
+**`DEALER-STRATEGY.md` is the long version** — what the dealer measures,
+why, and which ideas were parked for the next pass. Read it before
+touching `js/dealer/`.
 
 ### The point system
 
@@ -474,7 +526,7 @@ of the rules. That's all.
 It used to also carry a live stats table and a breakdown of the piece odds
 at your level. Both were interesting to build; neither was anything you
 could act on mid-game, and they pushed the board — the reason the panel
-exists — off the top of the screen. `shapeOdds()` in `dealer.js` still
+exists — off the top of the screen. `shapeOdds()` in `js/dealer/index.js` still
 computes the odds and is still tested, if you want them back.
 
 Escape, the ✕, or a tap on the backdrop closes it.
@@ -560,8 +612,12 @@ Almost everything is in `js/config.js`:
 | `LEVELS` | the 20-rung ladder — thresholds, multipliers, `clearChance` |
 | `COLORS` | the block palette |
 | `SCORING` | per cell, per line, combo, and all four bonuses |
+| `DEALER.generosityFloor` | how much the dealer still helps you at level 20 |
+| `DEALER.biasStrength` | how hard full generosity leans toward helping you |
+| `DEALER.spiteStrength` | …and how much more gently it ever leans the other way |
 | `DEALER.rescuePower` | how fast a filling board earns you a way out |
-| `DEALER.fitBoost` | preference for shapes that fit the board right now |
+| `DEALER.sequenceFloor` | odds the whole tray is guaranteed playable, at level 20 |
+| `DEALER.perfectPull` | how hard it pushes a piece that could clear the whole board |
 | `DEALER.crowdPenalty` | how hard duplicate shapes in one tray are damped |
 | `LOOKS.swapMs` | how long a look change takes to cross-fade |
 | `LEADERBOARD_SIZE` | how many scores the table keeps |
@@ -571,10 +627,16 @@ Almost everything is in `js/config.js`:
 | `FX.shardsPerCell` | confetti density — lower if it feels sluggish |
 | `TIMING.badgeGap` | pause between stacked bonus badges |
 
-**How often each shape appears is set in `js/pieces.js`**, on the shape
-itself. To make 5-bars even more common, raise their `weight`; to bring
-the 3×3 in earlier, lower its `from`. `shapeOdds(level)` in `dealer.js`
-prints the resulting distribution — it's exported for exactly this.
+**Which shapes exist, and when they unlock, is set in `js/pieces.js`** on
+the shape itself. To bring the 3×3 in earlier, lower its `from`; to give a
+level a different texture, change `weight`. Since 0.4.0 that curve only
+flavours the mix — what you're actually handed is decided by the board, in
+`js/dealer/`. `shapeOdds(level)` prints the flavour distribution.
+
+**To change how the dealer thinks**, start with `DEALER-STRATEGY.md`, then
+`js/dealer/evaluate.js` (what a piece is worth) and `js/dealer/compose.js`
+(how a tray is built). Both are pure functions over a plain board array,
+so a new idea can be tried in `npm test` in a few seconds.
 
 Visual styling lives in `css/styles.css`, grouped by area with comments.
 

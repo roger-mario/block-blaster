@@ -8,6 +8,111 @@ bump that, add an entry here, and bump `CACHE_VERSION` in
 
 ---
 
+## 0.4.0 — 2026-07-27
+
+One subject only: **which three pieces you get, and why**. Nothing else in
+the game moved — no new visuals, no rules changes, no scoring changes.
+
+The full reasoning is in the new **`DEALER-STRATEGY.md`**. Read that before
+touching `js/dealer/`.
+
+### Changed
+
+- **There are no easy or hard pieces any more.** Every shape used to carry
+  a `difficulty` rating, and the dealer's job was to roll the level's dice
+  and hand out more of the hard ones as you climbed. That model is wrong
+  in a way you can feel: a 5-bar is the best piece in the game when a row
+  is three from complete and a disaster when your empty space is four
+  separate pockets. Same piece, opposite value, and the only thing that
+  changed was the board.
+
+  So the board is now the primary input. Every unlocked shape is scored
+  against the grid in front of you — where it can go, how healthy a board
+  its best placement leaves behind, what it can clear, whether it moves
+  you toward emptying the whole thing — and the level curve from
+  `pieces.js` has been demoted to a background prior that nudges the mix
+  for variety and pacing.
+
+- **Difficulty is now how hard the dealer works for you, not what it's
+  allowed to reach for.** A single `generosity` dial runs from 1.0 at
+  level 1 to 0.12 at level 20. At the bottom the dealer actively hunts for
+  the pieces that leave your board in the best shape; around level 10 it's
+  indifferent; at the top it stops doing you favours. It is deliberately
+  never as spiteful as it is generous — in a game with no rotation, a
+  dealer that always hands over the single worst piece isn't difficult,
+  it's rigged. The board is what gets harder, because the dealer stops
+  tidying it for you.
+
+- **The rescue dial is kept separate from the difficulty dial.** The
+  clearing bonus never inverts, at any level, so a late board is hard to
+  *manage* rather than hard to *escape*.
+
+- **Trays are composed, not rolled.** The three slots are drawn one at a
+  time, and after each pick the board is advanced to how it would look if
+  that piece were played well — so the next slot is chosen against *that*.
+  That single rule is where combos come from: the dealer can hand you a
+  piece that sets a row up and a second piece that finishes it.
+
+### Added
+
+- **A whole-board clear is something the game now offers you.** The dealer
+  works out which rows and columns would, if they cleared, empty the board
+  outright. When that cover is small enough to be real, it prefers pieces
+  that finish those exact lines — and pays a large bonus to any piece that
+  can sweep the board in one move. The size of that nudge fades as you
+  climb, so a perfect clear is handed to you early and earned late.
+
+  Auto-playing 60 games with the solver, same seeds, before and after:
+
+  | | 0.3.0 | 0.4.0 |
+  |---|---|---|
+  | games that saw a perfect clear | 5% | **48%** |
+  | perfect clears per game | 0.05 | **1.07** |
+  | median moves per game | 464 | 818 |
+  | median lines cleared | 213 | 396 |
+  | median level reached | 12 | 16 |
+
+- **A tray you can't play out is now impossible at the levels that promise
+  it.** The old check asked whether each piece fit the board as it stood —
+  which misses the piece that fits today and has nowhere to go once the
+  first one is down. The dealer now searches the tray for an order in
+  which all three can actually be placed, and swaps slots until it finds
+  one. The guarantee is level-scaled (certain early, about 58% at level
+  20); the older "at least one piece fits" floor is still on at all 20
+  levels, so a completely dead hand remains impossible.
+
+- **13 new shapes**, taking the vocabulary from 26 to 39. A board-aware
+  dealer gets *better* with more shapes, not worse — a bigger vocabulary
+  means a better chance something in the pool is exactly what this board
+  needs.
+
+  - the eight **L/J tetrominoes** (`jay-*`, `hook-*`) — a 3-bar with a nub,
+    the best "fill an awkward corner" piece there is, and the game somehow
+    didn't have it
+  - **`plus`**, for the cross-shaped pocket nothing else reaches
+  - **`diag-2a/b`** and **`diag-3a/b`** — cells that don't even touch. Late,
+    rare, and occasionally the only thing that fits two separated holes.
+
+- **The dealer is its own component**, `js/dealer/`: `board.js` reads a
+  grid, `placement.js` knows where things go, `evaluate.js` scores a shape
+  against a board, `compose.js` builds the tray, `dials.js` holds the two
+  difficulty knobs. Every one is a pure function over a plain array — no
+  `Game`, no DOM — so a new dealer idea can be tested in seconds. This is
+  the part of the game most likely to be rewritten again, and it's now
+  shaped for that.
+
+- 30 new tests covering the component, and a `DEALER-STRATEGY.md` that
+  records what was considered and what was parked.
+
+### Fixed
+
+- 5-bars were quietly diluted by the bigger shape vocabulary; their weight
+  was raised to keep them as common as they were. The test that guards
+  this now measures against an even share rather than a fixed percentage,
+  so it can't silently pass the next time shapes are added.
+
+---
+
 ## 0.3.0 — 2026-07-27
 
 Straight from player feedback.

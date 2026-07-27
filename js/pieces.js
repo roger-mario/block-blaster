@@ -15,8 +15,17 @@
  * 5-bars arrive at level 5 and stay generous forever, and the S/Z pieces
  * show up late and stay rare because they're the ones that wreck boards.
  *
- * `difficulty` is now only a label — useful for the menu and for reading
- * the table, but the curve is what the dealer actually uses.
+ * As of 0.4.0 this curve is a *prior*, not the decision. The dealer scores
+ * every shape against the board you actually have and the curve only
+ * nudges the result (see DEALER-STRATEGY.md), so read these numbers as
+ * pacing and variety rather than as difficulty:
+ *
+ *   `from` gates a shape until a level, so the vocabulary of the game
+ *   grows as you play and level 1 isn't handed a 3×3 block.
+ *   `weight` keeps a level's mix recognisable instead of collapsing onto
+ *   whatever the evaluator happens to like most.
+ *   `difficulty` is a label for humans reading the table. Nothing reads
+ *   it to make a decision.
  */
 
 import { BOARD_SIZE } from "./config.js";
@@ -70,8 +79,22 @@ export const SHAPES = [
   // These arrive early-ish and stay the most common thing on the board.
   // Half a row in one move is the most satisfying piece in the game, and
   // they were far too rare before.
-  shape("penta-h", 7, { from: 4, peak: 5, weight: 1.45 }, ["XXXXX"]),
-  shape("penta-v", 7, { from: 4, peak: 5, weight: 1.45 }, ["X", "X", "X", "X", "X"]),
+  shape("penta-h", 7, { from: 4, peak: 5, weight: 1.6 }, ["XXXXX"]),
+  shape("penta-v", 7, { from: 4, peak: 5, weight: 1.6 }, ["X", "X", "X", "X", "X"]),
+
+  // ---- the L/J tetrominoes: a 3-bar with a nub ------------------------
+  // The most useful "fill an awkward corner" piece there is, and the game
+  // didn't have them. `jay-*` stand a 3 tall, `hook-*` lay it flat; the
+  // suffix says where the nub sits.
+  shape("jay-bl", 4, { from: 3, peak: 5, weight: 0.7 }, [".X", ".X", "XX"]),
+  shape("jay-br", 4, { from: 3, peak: 5, weight: 0.7 }, ["X.", "X.", "XX"]),
+  shape("jay-tl", 4, { from: 3, peak: 5, weight: 0.7 }, ["XX", ".X", ".X"]),
+  shape("jay-tr", 4, { from: 3, peak: 5, weight: 0.7 }, ["XX", "X.", "X."]),
+
+  shape("hook-tl", 4, { from: 3, peak: 5, weight: 0.7 }, ["X..", "XXX"]),
+  shape("hook-tr", 4, { from: 3, peak: 5, weight: 0.7 }, ["..X", "XXX"]),
+  shape("hook-bl", 4, { from: 3, peak: 5, weight: 0.7 }, ["XXX", "X.."]),
+  shape("hook-br", 4, { from: 3, peak: 5, weight: 0.7 }, ["XXX", "..X"]),
 
   // ---- awkward middles -------------------------------------------------
   shape("tee-down", 5, { from: 4, peak: 5, weight: 0.85 }, ["XXX", ".X."]),
@@ -89,10 +112,21 @@ export const SHAPES = [
   shape("ell-bl", 8, { from: 6, peak: 7, weight: 0.7 }, ["XXX", "X..", "X.."]),
   shape("ell-br", 8, { from: 6, peak: 7, weight: 0.7 }, ["XXX", "..X", "..X"]),
 
+  // ---- the plus: reaches a cross-shaped pocket nothing else does -------
+  shape("plus", 6, { from: 5, peak: 7, weight: 0.6 }, [".X.", "XXX", ".X."]),
+
   // ---- the board-wreckers: late and deliberately rare -------------------
   shape("ess", 9, { from: 7, peak: 9, weight: 0.45 }, [".XX", "XX."]),
   shape("zee", 9, { from: 7, peak: 9, weight: 0.45 }, ["XX.", ".XX"]),
   shape("square-3", 10, { from: 7, peak: 10, weight: 0.4 }, ["XXX", "XXX", "XXX"]),
+
+  // ---- and the diagonals: cells that don't even touch each other -------
+  // Cheap, awkward, and now and then the only thing that fits two holes
+  // the rest of the vocabulary can't reach at once.
+  shape("diag-2a", 7, { from: 6, peak: 9, weight: 0.4 }, ["X.", ".X"]),
+  shape("diag-2b", 7, { from: 6, peak: 9, weight: 0.4 }, [".X", "X."]),
+  shape("diag-3a", 10, { from: 9, peak: 12, weight: 0.3 }, ["X..", ".X.", "..X"]),
+  shape("diag-3b", 10, { from: 9, peak: 12, weight: 0.3 }, ["..X", ".X.", "X.."]),
 ];
 
 /**
