@@ -19,10 +19,12 @@
  * always in that shortlist.
  */
 
-import { DEALER } from "../config.js";
+import { BOARD_SIZE, DEALER } from "../config.js";
 import { shapeWeightAt } from "../pieces.js";
 import { boardHealth, isBoardEmpty, lineCounts, sweepPlan } from "./board.js";
 import { completedBy, contactAt, placementsFor, simulate } from "./placement.js";
+
+const CELLS = BOARD_SIZE * BOARD_SIZE;
 
 /** Does this placement finish a line the sweep plan is counting on? */
 function hitsSweep(sweep, completed) {
@@ -36,10 +38,14 @@ function hitsSweep(sweep, completed) {
 /**
  * What this shape can do on this board.
  *
- * `raw` is the board-management value alone — health gain plus a little
- * for flexibility. Line clearing is deliberately *not* folded into it:
- * the two are weighted separately in compose.js so that a high level can
- * stop helping you build without also refusing to let you clear.
+ * `raw` is the board-management value alone — health gain, credit for the
+ * cells the piece actually puts down, and a little for flexibility. Line
+ * clearing is deliberately *not* folded into it: the two are weighted
+ * separately in compose.js so that a high level can stop helping you
+ * build without also refusing to let you clear.
+ *
+ * The cell credit is not a preference for big pieces, it's a correction.
+ * See `DEALER.substance`.
  */
 export function evaluateShape(board, shape, context) {
   const { base, counts, sweep, level } = context;
@@ -94,7 +100,9 @@ export function evaluateShape(board, shape, context) {
 
   evaluation.gain = bestHealth - base;
   evaluation.raw =
-    evaluation.gain + DEALER.flexibility * Math.min(1, spots.length / DEALER.flexibleAt);
+    evaluation.gain +
+    DEALER.substance * (cells.length / CELLS) +
+    DEALER.flexibility * Math.min(1, spots.length / DEALER.flexibleAt);
 
   return evaluation;
 }

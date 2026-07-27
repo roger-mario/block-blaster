@@ -258,6 +258,35 @@ header {
 
 .lifeline.used .glyph { filter: grayscale(0.75); }
 
+/*
+ * The Joker while it's running.
+ *
+ * It's spent — it can never be played again — but it is very much still
+ * doing something, and every point on screen is doubled because of it.
+ * Greying it out like the others would say the opposite, so `active`
+ * overrides `used` completely: full opacity, no strike-through, and a
+ * slow pulse so it reads as live rather than merely enabled.
+ */
+.lifeline.used.active {
+  background: linear-gradient(150deg, #b98cff, #7c4dff);
+  color: #fff;
+  opacity: 1;
+  box-shadow: 0 3px 16px rgba(140, 90, 255, 0.5), inset 0 0 0 1px rgba(255, 255, 255, 0.4);
+  animation: jokerPulse 1.9s ease-in-out infinite;
+}
+
+.lifeline.used.active .glyph { filter: none; }
+.lifeline.used.active::after { display: none; }
+
+@keyframes jokerPulse {
+  0%, 100% { box-shadow: 0 3px 16px rgba(140, 90, 255, 0.5), inset 0 0 0 1px rgba(255, 255, 255, 0.4); }
+  50%      { box-shadow: 0 3px 26px rgba(160, 110, 255, 0.85), inset 0 0 0 1px rgba(255, 255, 255, 0.6); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lifeline.used.active { animation: none; }
+}
+
 .lifeline.used::after {
   content: "";
   position: absolute;

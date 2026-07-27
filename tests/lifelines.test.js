@@ -21,12 +21,12 @@ function atLevel(game, level) {
 
 // ---------- the pot ----------
 
-test("a game starts with all three lifelines unspent", () => {
+test("a game starts with every lifeline unspent", () => {
   const game = newGame();
   for (const spec of LIFELINES) {
     assert.equal(game.lifelineUsed[spec.id], false, `${spec.id} is unspent`);
   }
-  assert.equal(game.lifelineStatuses().length, 3);
+  assert.equal(game.lifelineStatuses().length, LIFELINES.length);
 });
 
 test("rewind is offered only once there is a move to take back", () => {

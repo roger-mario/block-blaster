@@ -125,6 +125,29 @@ game.on("shuffle", () => {
   fx.buzz(10);
 });
 
+game.on("joker", ({ boost }) => {
+  input.cancel();
+  fx.clearBadges();
+  render.hideGameOver();
+  if (boost > 1) {
+    fx.queueBadge(`JOKER — ×${boost} POINTS`, "bonus");
+    fx.queueBadge("HARDER PIECES");
+    fx.buzz(14);
+  } else {
+    // it retires itself on the way out of the opening levels; say so,
+    // or the score quietly halving looks like a bug
+    fx.queueBadge("JOKER SPENT");
+  }
+});
+
+// every 20th tray is deliberately awkward — announced, because an
+// unexplained bad hand reads as bad luck rather than as the game asking
+// something of you
+game.on("challenge", () => {
+  fx.queueBadge("CHALLENGE ROUND");
+  fx.buzz(8);
+});
+
 game.on("wipe", ({ snapshot, cells }) => {
   input.cancel();
   fx.clearBadges();

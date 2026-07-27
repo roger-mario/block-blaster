@@ -54,15 +54,18 @@ function shape(name, difficulty, curve, rows) {
 export const SHAPES = [
   // ---- the rescue piece ----------------------------------------------
   // Always available, deliberately never common: a tray full of single
-  // squares makes the game trivial rather than fun.
-  shape("dot", 1, { from: 1, peak: 1, fade: 3, floor: 0.5, weight: 0.55 }, ["X"]),
+  // squares makes the game trivial rather than fun. Cut hard in 0.4.1 —
+  // it takes eight of these to clear a line, and being handed a steady
+  // supply of them is the slowest possible way to play.
+  shape("dot", 1, { from: 1, peak: 1, fade: 2, floor: 0.45, weight: 0.3 }, ["X"]),
 
   // ---- level 1-2 bread and butter, mostly gone by level 8 -------------
-  shape("domino-h", 1, { from: 1, peak: 1, fade: 3, floor: 0.25, weight: 1.5 }, ["XX"]),
-  shape("domino-v", 1, { from: 1, peak: 1, fade: 3, floor: 0.25, weight: 1.5 }, ["X", "X"]),
+  // Also cut in 0.4.1, for the same reason.
+  shape("domino-h", 1, { from: 1, peak: 1, fade: 2, floor: 0.25, weight: 0.85 }, ["XX"]),
+  shape("domino-v", 1, { from: 1, peak: 1, fade: 2, floor: 0.25, weight: 0.85 }, ["X", "X"]),
 
-  shape("tri-h", 2, { from: 1, peak: 2, fade: 5, floor: 0.4, weight: 1.4 }, ["XXX"]),
-  shape("tri-v", 2, { from: 1, peak: 2, fade: 5, floor: 0.4, weight: 1.4 }, ["X", "X", "X"]),
+  shape("tri-h", 2, { from: 1, peak: 2, fade: 5, floor: 0.4, weight: 1.5 }, ["XXX"]),
+  shape("tri-v", 2, { from: 1, peak: 2, fade: 5, floor: 0.4, weight: 1.5 }, ["X", "X", "X"]),
 
   // Corners stay useful forever — they tuck into gaps nothing else fits.
   shape("corner-tl", 2, { from: 1, peak: 2, fade: 7, floor: 0.6, weight: 1.1 }, ["X.", "XX"]),
@@ -71,9 +74,13 @@ export const SHAPES = [
   shape("corner-br", 2, { from: 1, peak: 2, fade: 7, floor: 0.6, weight: 1.1 }, ["XX", ".X"]),
 
   // ---- the workhorses: never fade --------------------------------------
-  shape("square-2", 3, { from: 2, peak: 3, weight: 1.2 }, ["XX", "XX"]),
-  shape("quad-h", 4, { from: 3, peak: 4, weight: 1.15 }, ["XXXX"]),
-  shape("quad-v", 4, { from: 3, peak: 4, weight: 1.15 }, ["X", "X", "X", "X"]),
+  // The 2×2 and the 4-bars arrive a level earlier than they used to, so
+  // the opening has something substantial to draw instead of a third
+  // domino. They're the friendliest big pieces in the game — this makes
+  // level 1 quicker, not harder.
+  shape("square-2", 3, { from: 1, peak: 3, weight: 1.3 }, ["XX", "XX"]),
+  shape("quad-h", 4, { from: 1, peak: 4, weight: 1.25 }, ["XXXX"]),
+  shape("quad-v", 4, { from: 1, peak: 4, weight: 1.25 }, ["X", "X", "X", "X"]),
 
   // ---- the long bars ---------------------------------------------------
   // These arrive early-ish and stay the most common thing on the board.

@@ -39,7 +39,7 @@ npm test
 ```
 
 That covers the board rules, the difficulty ladder, the whole scoring
-system, the three lifelines and what a drop is allowed to do.
+system, the four lifelines and what a drop is allowed to do.
 
 ---
 
@@ -408,6 +408,40 @@ Then three promises are checked against the real board:
   58% at level 20, because at the top the risk of boxing yourself in is
   part of the difficulty.
 
+#### Challenge rounds and the Joker
+
+*Added in 0.4.1.* Both work the same way underneath — a `challenge` value
+from 0 to 1 that drags the level's own dials down toward the top of the
+ladder without changing the level. A challenge at level 2 is simply the
+level-20 dealer paying an early visit.
+
+**Every twentieth tray is a challenge round.** Generosity drops to its
+floor and the free rescue gets stingier. The line it never crosses is
+solvability: a challenged tray always has its sequence guarantee forced to
+certain, so a challenge round is hard *and* playable to the end — a tray
+you have to think about, never one you can't play. The first tray of a
+game is never one (there's no board yet to make hard), and a Shuffle
+re-deals on the same terms, or a challenge would last exactly as long as
+it takes to press one button. It's announced with a badge: an unexplained
+bad hand reads as unfairness, and the same hand labelled reads as the game
+asking something of you.
+
+**🃏 The Joker** is a fourth lifeline and the only one that makes the game
+harder. Offered up to level 5, once per game: every point doubles, and the
+dealer starts handing you level-20 pieces. It runs until you reach level
+6, which is also when the button disappears — a permanent doubling would
+turn every leaderboard score into a question of whether you pressed a
+button in the first two minutes.
+
+A note on where the difficulty sits. A challenge lands almost entirely on
+the **generosity** dial and only partly on the **rescue** dial
+(`DEALER.challengeRescueBite`). That's not a fudge — you climb the ladder
+on lines cleared, so taking the free rescue away doesn't make the game
+harder so much as *slower*. The first build of the Joker did exactly that
+and measured 100 moves to reach level 6 against 90 without it: strictly
+worse, in every direction. Difficulty belongs on the dial that decides how
+much the dealer tidies up for you.
+
 #### Clearing the whole board
 
 The best moment in this kind of game, and until 0.4.0 it was an accident
@@ -454,17 +488,18 @@ what makes pushing deeper worth the harder pieces.
 Each bonus announces itself with its own badge. Several can fire on one
 move, so they queue up and play in sequence rather than overlapping.
 
-### Lifelines: three of them, one use each
+### Lifelines: four of them, one use each
 
 In the spirit of the quiz show. They are deliberately **not**
-interchangeable — two of them only exist for part of the ladder, so *when*
-you spend one matters as much as which:
+interchangeable — three of them only exist for part of the ladder, so
+*when* you spend one matters as much as which:
 
 | | Lifeline | What it does | When |
 |---|---|---|---|
-| ↩ | **Rewind** | takes back your last placement — board, tray, score, combo and level all go back exactly as they were | levels 1–5 |
+| ⏪ | **Rewind** | takes back your last placement — board, tray, score, combo and level all go back exactly as they were | levels 1–5 |
 | 🔀 | **Shuffle** | re-deals the pieces still in your tray | any level |
-| 💥 | **Wipe** | clears every block off the board | level 5+ |
+| 🧹 | **Wipe** | clears every block off the board | level 5+ |
+| 🃏 | **Joker** | doubles every point you score, and hands you level-20 pieces while it runs | levels 1–5 |
 
 Rewind still only ever goes back **one step**: the game keeps a single
 snapshot, taken at the start of each placement. Above level 5 it's gone
@@ -479,20 +514,38 @@ would quietly undo the shuffle too.
 Wipe scores nothing and doesn't move the ladder. It's a rescue, not a
 clear.
 
+**The Joker is the odd one out — the only lifeline that makes the game
+harder.** The opening levels are the slow ones: small pieces, a multiplier
+below 1, a long way to the next rung. Play the Joker and you trade that
+away. Every point doubles, and the dealer starts treating you as though
+you were at the top of the ladder. It runs until you reach level 6, which
+is also when the button disappears; a permanent doubling would turn every
+leaderboard score into a question of whether you remembered to press a
+button in the first two minutes.
+
+Two details it would be easy to get wrong. The boost is applied *after*
+rounding, so "double points" is exactly double rather than `round(0.6) = 1`
+twice over. And playing it re-deals the tray you're holding, so you can't
+bank three gentle pieces at double value before the downside arrives.
+While it runs the button stays lit and pulsing rather than greying out
+like a spent lifeline — it *is* spent, but it's very much still doing
+something, and a grey button would say the opposite.
+
 **Locked buttons still do something.** Tapping a dark lifeline is how you
 find out what's wrong with it — it answers with the reason ("Unlocks at
 level 5", "Already used"). Spent ones stay on screen, crossed out, so you
 can see what you've burned. The tooltip shows on hover, on keyboard focus,
 and for a moment after a tap, because hover doesn't exist on a phone.
 
-All three work from the **Game Over screen** too, where whichever ones you
+They all work from the **Game Over screen** too, where whichever ones you
 have left are offered as a second chance — a wipe or a shuffle can pull
 you out of a dead end, not just a rewind. The rules recompute the verdict
 after every lifeline, so the overlay lifts by itself when one saves you.
 
-Adding a fourth lifeline means adding an entry to `LIFELINES` in
+Adding a fifth lifeline means adding an entry to `LIFELINES` in
 `config.js` and a branch in `useLifeline()`; the buttons, the tooltips,
-the locking and the rescue row all build themselves from that list.
+the locking and the rescue row all build themselves from that list. The
+Joker was added in 0.4.1 and needed exactly that, plus the scoring boost.
 
 ### Line-clear preview
 
@@ -608,7 +661,7 @@ Almost everything is in `js/config.js`:
 |---|---|
 | `APP_VERSION` | the version shown on the page and in the menu |
 | `BOARD_SIZE` | grid dimensions (8 = classic) |
-| `LIFELINES` | the three lifelines: icon, label, and the levels each is available at |
+| `LIFELINES` | the four lifelines: icon, label, and the levels each is available at |
 | `LEVELS` | the 20-rung ladder — thresholds, multipliers, `clearChance` |
 | `COLORS` | the block palette |
 | `SCORING` | per cell, per line, combo, and all four bonuses |
@@ -618,6 +671,11 @@ Almost everything is in `js/config.js`:
 | `DEALER.rescuePower` | how fast a filling board earns you a way out |
 | `DEALER.sequenceFloor` | odds the whole tray is guaranteed playable, at level 20 |
 | `DEALER.perfectPull` | how hard it pushes a piece that could clear the whole board |
+| `DEALER.substance` | credit per cell a piece places — stops the dealer favouring the smallest one |
+| `DEALER.gauntletEvery` | trays between challenge rounds |
+| `DEALER.jokerChallenge` | how much harder the Joker makes the dealer |
+| `DEALER.challengeRescueBite` | how much of a challenge lands on the rescue dial rather than generosity |
+| `SCORING.jokerBoost` | what the Joker multiplies your score by |
 | `DEALER.crowdPenalty` | how hard duplicate shapes in one tray are damped |
 | `LOOKS.swapMs` | how long a look change takes to cross-fade |
 | `LEADERBOARD_SIZE` | how many scores the table keeps |

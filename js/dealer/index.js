@@ -39,15 +39,24 @@ function pickColor(rng, level, boardClears) {
  * Without a board there's nothing to read, so it falls back to the level
  * curve alone — that path exists for tooling, not for play.
  *
+ * `challenge` (0 → 1) drags the level's own dials toward the top of the
+ * ladder without touching the level itself — see dials.js. The game uses
+ * it for the periodic challenge round and for the 🃏 Joker.
+ *
  * @param {number} count
- * @param {{level:number, board:string[][], rng?:Function, boardClears?:number}} options
+ * @param {{level:number, board:string[][], rng?:Function, boardClears?:number, challenge?:number}} options
  */
 export function dealTray(
   count = TRAY_SLOTS,
-  { level = 1, board = null, rng = Math.random, boardClears = 0 } = {}
+  { level = 1, board = null, rng = Math.random, boardClears = 0, challenge = 0 } = {}
 ) {
   const shapes = board
-    ? guardTray(composeTray(count, { level, board, rng }), { level, board, rng })
+    ? guardTray(composeTray(count, { level, board, rng, challenge }), {
+        level,
+        board,
+        rng,
+        challenge,
+      })
     : Array.from({ length: count }, () => pickShape(level, rng));
 
   return shapes.map((shape) => pieceFromShape(shape, pickColor(rng, level, boardClears)));

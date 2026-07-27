@@ -8,6 +8,117 @@ bump that, add an entry here, and bump `CACHE_VERSION` in
 
 ---
 
+## 0.4.1 — 2026-07-27
+
+Three changes from playing 0.4.0. Still only about which pieces you get —
+plus one new lifeline that buys you worse ones on purpose.
+
+### Added
+
+- **Challenge rounds.** Every twentieth tray, the dealer stops being the
+  one for your level and becomes the one from the top of the ladder:
+  generosity drops to its floor, and the free rescue gets stingier — half
+  of the way to level 20's odds, not all of it, for the reason in the
+  Joker notes below.
+
+  The line it never crosses is solvability. Any tray dealt under challenge
+  has its sequence guarantee forced to certain, so a challenge round is
+  always hard *and* always playable to the end — a tray you have to think
+  about, never a tray you can't play. Two smaller decisions: the first
+  tray of a game is never one (no board yet, so nothing to make hard), and
+  a Shuffle re-deals on the same terms, or a challenge would last exactly
+  as long as it takes to press one button.
+
+  It's announced with a badge. That isn't decoration — an unexplained bad
+  hand reads as the game being unfair, and the same hand labelled reads as
+  the game asking something of you.
+
+- **🃏 Joker — a fourth lifeline, and the only one that makes the game
+  harder.** Available up to level 5, once per game. Play it and every
+  point doubles, while the dealer starts handing you the pieces level 20
+  would get. It runs until you reach level 6, which is also when the
+  button disappears.
+
+  It ends there rather than lasting the game on purpose: a permanent
+  doubling would turn every leaderboard score into a question of whether
+  you remembered to press a button in the first two minutes, which isn't a
+  skill. Scoped to the slow opening levels, it's a real decision about a
+  real risk.
+
+  Two details that matter more than they sound: the boost is applied
+  *after* rounding, so "double points" is exactly double rather than
+  `round(0.6) = 1` twice over; and playing it re-deals the tray you're
+  holding, so you can't bank three gentle pieces at double value before
+  the downside arrives. While it runs the button stays lit and pulsing
+  instead of greying out like a spent lifeline — it's spent, but it is
+  very much still doing something.
+
+  **It took two goes to make it a gamble rather than a trap**, and both
+  mistakes were only visible in simulation:
+
+  - Dragging the *rescue* odds down with everything else made the opening
+    **slower**, not harder — you climb the ladder on lines cleared, so
+    halving how often a line-finisher turns up costs you tempo rather
+    than demanding skill. 100 moves to reach level 6 against 90 without
+    the Joker, while also scoring less: strictly worse in every
+    direction. A challenge now only half-lands on that dial.
+  - Dragging the *reward* pulls down took whole-board clears from 1.54 a
+    game to 0.18. A sparse board is an opening-levels phenomenon, and the
+    Joker covers exactly that window — so it wasn't adding difficulty, it
+    was deleting the best moment in the game.
+
+  With difficulty confined to the one dial it belongs on — how hard the
+  dealer works to improve your board — the Joker measures **+16% median
+  score** (41,040 against 35,258 over 50 games each), at the cost of most
+  of your whole-board clears: harder pieces leave a messier board, and a
+  messy board is never sweepable. That's a legible trade, which is what a
+  gamble should be.
+
+### Fixed
+
+- **The opening was a flood of one- and two-cell pieces**, and the cause
+  turned out to be a bug in the dealer's judgement rather than a taste in
+  the curve.
+
+  Board health rewards how much space is left. That's right for comparing
+  two boards and quietly wrong for comparing two *pieces*: a 5-cell piece
+  was charged five cells of "damage" for doing five cells of work while a
+  single square was charged one. The dealer wasn't preferring small pieces
+  because they're good — it was preferring them because of an accounting
+  error, and the level-1 bias of +5 amplified it.
+
+  `DEALER.substance` gives back a credit per cell placed, set just above
+  `health.room` so the correction lands on the side of pieces that get
+  something done. Alongside it the curve was rebalanced: the single square
+  and the dominoes are much rarer, and the 2×2 and both 4-bars now arrive
+  at level 1 so the opening has something substantial to draw instead of a
+  third domino.
+
+  Measured over real games:
+
+  | At level 1 | 0.4.0 | 0.4.1 |
+  |---|---|---|
+  | pieces of 1–2 cells | 69% | **7%** |
+  | average piece | 2.01 cells | **3.61 cells** |
+  | single squares | 31% of draws | **0.6%** |
+
+- Together with the challenge rounds this is a net *increase* in
+  difficulty, not a softening — and more whole-board clears at the same
+  time. Same 60-game auto-play harness as 0.4.0, same seeds:
+
+  | | 0.4.0 | 0.4.1 |
+  |---|---|---|
+  | median moves per game | 818 | **677** |
+  | median level reached | 16 | 15 |
+  | perfect clears per game | 1.07 | **1.53** |
+  | games that saw one | 48% | **67%** |
+
+  The opening is quicker, the rest of the ladder bites harder, and the
+  best moment in the game happens more often. Still zero dead trays, and
+  every sampled tray playable to the end.
+
+---
+
 ## 0.4.0 — 2026-07-27
 
 One subject only: **which three pieces you get, and why**. Nothing else in

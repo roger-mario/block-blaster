@@ -57,16 +57,26 @@ function draftWeight(entry, { bias, help, repeats }) {
  * against the *real* board, and the player is under no obligation to play
  * the line this function imagined.
  */
-export function composeTray(count, { level, board, rng }) {
+export function composeTray(count, { level, board, rng, challenge = 0 }) {
   const pool = shapePoolFor(level);
-  const bias = evaluationBias(level);
+  const bias = evaluationBias(level, challenge);
 
-  // how much the clearing bonuses are worth here: always something, so a
-  // level 20 board is hard to manage rather than impossible to escape
+  // How much the clearing bonuses are worth here: always something, so a
+  // level 20 board is hard to manage rather than impossible to escape.
+  //
+  // Deliberately read from the *level's* generosity and not the
+  // challenged one. A challenge is about how much the dealer tidies up
+  // for you; finishing a line — and especially sweeping the whole board —
+  // is a reward you earn, and it should still be on the table when the
+  // game is leaning on you. Measured the other way round: a Joker that
+  // dragged this down too took whole-board clears from 1.58 a game to
+  // 0.18, because a sparse board is an opening-levels thing and the Joker
+  // covers exactly that window. That isn't difficulty, it's deleting the
+  // best moment in the game.
   const help = DEALER.helpFloor + (1 - DEALER.helpFloor) * generosity(level);
 
   // one roll, before anything is drawn: does this tray owe you an out?
-  const owesAnOut = rng() < rescueChance(level, fillRatio(board));
+  const owesAnOut = rng() < rescueChance(level, fillRatio(board), challenge);
 
   const drawn = [];
   const used = new Map();
@@ -127,10 +137,10 @@ function ensureSomethingFits(shapes, { level, board, rng }) {
  * by how full the board is, so at real pressure even level 20 nearly
  * always offers a way out.
  */
-function ensureAWayOut(shapes, { level, board, rng }) {
+function ensureAWayOut(shapes, { level, board, rng, challenge = 0 }) {
   const counts = lineCounts(board);
   if (shapes.some((shape) => shapeClearsLine(board, shape.cells, counts))) return shapes;
-  if (rng() > rescueChance(level, fillRatio(board))) return shapes;
+  if (rng() > rescueChance(level, fillRatio(board), challenge)) return shapes;
 
   const clearing = shapePoolFor(level).filter((shape) =>
     shapeClearsLine(board, shape.cells, counts)
@@ -162,10 +172,12 @@ function ensureAWayOut(shapes, { level, board, rng }) {
  * swapped for the best-fitting alternatives until one does, biggest piece
  * first since it's the most likely blocker.
  *
- * Level-scaled: certain early, about 58% at level 20.
+ * Level-scaled: certain early, about 58% at level 20 — and always
+ * certain during a challenge round, which is what keeps "difficult" from
+ * turning into "hopeless".
  */
-function ensureSequencePlayable(shapes, { level, board, rng }) {
-  if (rng() >= sequenceGuarantee(level)) return shapes;
+function ensureSequencePlayable(shapes, { level, board, rng, challenge = 0 }) {
+  if (rng() >= sequenceGuarantee(level, challenge)) return shapes;
 
   const cellsOf = (list) => list.map((shape) => shape.cells);
   if (playableInSomeOrder(board, cellsOf(shapes)).playable) return shapes;

@@ -89,9 +89,9 @@ export function showPreview(preview, piece, origin) {
 // ---------- lifelines ----------
 
 /**
- * Builds the three lifeline buttons, in the toolbar and again on the
- * Game Over screen — a wipe or a shuffle can pull you back out of a
- * dead end, so they have to be reachable from there too.
+ * Builds the lifeline buttons, in the toolbar and again on the Game Over
+ * screen — a wipe or a shuffle can pull you back out of a dead end, so
+ * they have to be reachable from there too.
  *
  * Buttons are never given the `disabled` attribute. A locked lifeline
  * still has to be tappable, because tapping it is how you find out *why*
@@ -151,6 +151,9 @@ export function renderLifelines(statuses) {
     for (const button of document.querySelectorAll(`.lifeline[data-life="${status.id}"]`)) {
       button.classList.toggle("used", status.used);
       button.classList.toggle("locked", !status.available && !status.used);
+      // a spent Joker is still *running*, and a button that just goes grey
+      // would say the opposite of what's happening
+      button.classList.toggle("active", !!status.active);
       // deliberately not `disabled` or `aria-disabled`: the button still
       // does something when it's locked — it tells you why — and the
       // reason is carried in the accessible name

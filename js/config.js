@@ -6,7 +6,7 @@
  */
 
 /** Shown in the menu. Bump it whenever you ship — and add a CHANGELOG entry. */
-export const APP_VERSION = "0.4.0";
+export const APP_VERSION = "0.4.1";
 
 /**
  * The look — palette, block shape, block surface and scenery, all at once.
@@ -62,6 +62,17 @@ export const LIFELINES = [
     tip: "Sweep the whole board clean",
     minLevel: 5,
   },
+  {
+    id: "joker",
+    icon: "🃏",
+    label: "Joker",
+    tip: "Double points, harder pieces",
+    // An opening-only gamble: take the level-20 dealer early in exchange
+    // for double score, and climb out of the slow levels faster. It stops
+    // paying the moment you reach level 6, which is also when the button
+    // disappears — so it can't be used to inflate a late-game score.
+    maxLevel: 5,
+  },
 ];
 
 /** Lifelines keyed by id, for the lookups game.js does. */
@@ -88,6 +99,8 @@ export const SCORING = {
   perfectClearBonus: 300, // the whole board ends up empty
   flawlessTrayBonus: 150, // every piece in one tray cleared at least one line
   levelUpBonus: 50,       // × the level you just reached
+
+  jokerBoost: 2,          // everything doubles while the 🃏 Joker is running
 };
 
 /**
@@ -154,6 +167,31 @@ export const DEALER = {
   repairTries: 6,        // alternatives tried per slot when repairing a stuck tray
   solveBudget: 4000,     // search nodes before the sequence check gives up and says yes
 
+  // ---- challenge rounds: the level-20 dealer, visiting early ----
+  // A challenge drags generosity down toward its floor and the rescue odds
+  // down toward the top of the ladder's. What it never does is make a tray
+  // unplayable: any tray dealt under challenge has its sequence guarantee
+  // forced to certain, so it is always hard *and* always solvable.
+  gauntletEvery: 20,        // trays between challenge rounds — one round = one tray
+  gauntletChallenge: 1,     // how far a challenge round drags the dials down, 0 → 1
+  jokerChallenge: 0.45,     // …and how far the Joker does, for as long as it runs
+  challengeClearChance: 0.25, // the rescue odds a full challenge falls back to
+
+  /**
+   * How much of a challenge lands on the *rescue* dial rather than the
+   * generosity one.
+   *
+   * Below 1 on purpose. A challenge round lasts one tray, so taking the
+   * free rescue away with it is a fair spike. The Joker runs for dozens
+   * of trays, and at full bite it doesn't make the opening harder — it
+   * makes it *slower*, because you level up on lines cleared and it had
+   * quietly halved how often you could clear one. Measured: 100 moves to
+   * level 6 instead of 90, which is the exact opposite of the point.
+   *
+   * Difficulty belongs on the help dial. See DEALER-STRATEGY.md.
+   */
+  challengeRescueBite: 0.5,
+
   // ---- what the dealer values, once it's decided how much to help ----
   clearPull: 2.0,        // × per line a piece can finish right now
   multiPull: 2.5,        // extra for a piece that can take two lines at once
@@ -161,8 +199,24 @@ export const DEALER = {
   perfectPull: 6,        // extra for a piece that can empty the board outright
   helpFloor: 0.35,       // clearing bonuses never fall below this, at any level
   crowdPenalty: 0.45,    // × weight for repeating a shape already in the tray
-  flexibility: 0.25,     // how much "this piece has lots of homes" is worth
+  flexibility: 0.12,     // how much "this piece has lots of homes" is worth
   flexibleAt: 24,        // …and how many placements counts as lots
+
+  /**
+   * Credit for the cells a piece actually puts down, per cell.
+   *
+   * Without this the dealer has a systematic bias toward the smallest
+   * piece on offer, and it isn't a taste — it's an accounting error.
+   * `health.room` measures how much space is left, so a 5-cell piece is
+   * charged five cells of "damage" for doing five cells of work while a
+   * single square is charged one. Comparing the two boards afterwards is
+   * not comparing like with like.
+   *
+   * Set a little above `health.room` so the correction lands slightly on
+   * the side of pieces that get something done — which is the whole point
+   * of a game about completing lines.
+   */
+  substance: 1.35,
 
   // ---- reading a board (boardHealth) ----
   health: {
