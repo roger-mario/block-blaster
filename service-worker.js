@@ -9,7 +9,7 @@
  * Bump CACHE_VERSION whenever you add or rename a file below.
  */
 
-const CACHE_VERSION = "blockdrop-v0.1.0";
+const CACHE_VERSION = "blockdrop-v0.2.0";
 
 const ASSETS = [
   "./",
@@ -27,6 +27,9 @@ const ASSETS = [
   "./js/storage.js",
   "./js/dealer.js",
   "./js/leaderboard.js",
+  "./js/themes.js",
+  "./js/scenery.js",
+  "./js/celebrations.js",
   "./js/menu.js",
   "./js/game.js",
   "./js/solver.js",

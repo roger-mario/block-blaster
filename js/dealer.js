@@ -22,7 +22,8 @@
  * thing is testable on its own.
  */
 
-import { BOARD_SIZE, COLORS, DEALER, TRAY_SLOTS } from "./config.js";
+import { BOARD_SIZE, DEALER, TRAY_SLOTS } from "./config.js";
+import { activePalette } from "./themes.js";
 import { levelConfig } from "./difficulty.js";
 import { SHAPES, shapeWeightAt, shapePoolFor, pieceFromShape, weightedPick } from "./pieces.js";
 
@@ -138,8 +139,13 @@ export function shapeWeights(level, board = null) {
 
 // ---------- dealing ----------
 
+/**
+ * Block colours come from the active theme, not a fixed list, so a theme
+ * change restyles the pieces as well as the page.
+ */
 function pickColor(rng) {
-  return COLORS[Math.floor(rng() * COLORS.length) % COLORS.length];
+  const palette = activePalette();
+  return palette[Math.floor(rng() * palette.length) % palette.length];
 }
 
 /**

@@ -8,6 +8,79 @@ bump that, add an entry here, and bump `CACHE_VERSION` in
 
 ---
 
+## 0.2.0 — 2026-07-27
+
+The visual framework. Five separate animation categories, each on its own
+rotation, all planned in [ANIMATION-STRATEGY.md](ANIMATION-STRATEGY.md) —
+read that first; this is just what got built.
+
+### Added
+
+- **Line-clear animations, tiered and rotating** (`js/celebrations.js`).
+  Six of them. A single line always gets the plain `shatter`, so the
+  others have something to be measured against; a double unlocks
+  `shockwave`, `ember` and `cascade`; a triple or better also unlocks
+  `prism` and `nova`. Consecutive big clears cycle rather than repeat.
+  A counter drives it, not a random roll, so the same run of clears always
+  gives the same run of animations.
+
+- **Board-clear animations** — `bloom`, `starburst`, `implode`, rotating.
+  Emptying the whole board is the rarest thing in a game, so it gets its
+  own category on top of the line clear. **Locked below level 2**: doing
+  it by accident on a nearly empty board hasn't earned the best animation
+  in the game.
+
+- **Scenery that advances on level up** (`js/sceneries.js`). Ten
+  backgrounds, one per level, so reaching level 7 *looks* like level 7 —
+  the only visual proof you got further than last time. Cross-fades in,
+  and announces itself.
+
+- **Block surfaces** (`js/themes.js`). Blocks are made of something now,
+  not just coloured: `gloss` (glass), `candy` (fat soft highlight), `gem`
+  (cut facets) and `bubble` (specular dot and a lit rim). One per theme.
+
+- `ANIMATION-STRATEGY.md` — the plan, the rules, and the ideas not built
+  yet. Update it first, then build.
+
+- **Rotating themes** (`js/themes.js`, `js/scenery.js`). Four looks, each
+  with its own palette, corner shape and block surface, picked from the
+  **calendar** — the same for everyone on the same day, holding for three
+  days. A "new look" notice fires once per rotation.
+
+### Changed
+
+- **The tray and the toolbar sit with the board.** The tray used to be
+  pinned to the bottom of the phone with a dead strip between it and the
+  grid; now the toolbar, board and tray are one group, 8–10px apart, with
+  the spare height split above and below them. A hairline above the
+  toolbar marks off the play area.
+- **No hard edges anywhere.** The scenery is masked with a soft radial
+  falloff, overhangs the viewport so no blurred layer ever shows a
+  boundary, and every blob has a second falloff of its own. Every theme's
+  block corners were raised to at least 8px — Neon's used to be 2px.
+- **The theme picker is gone.** The look is something the game does on a
+  schedule and the scenery is a reward for progress; a picker turned both
+  into settings, and then nobody would ever see the other nine. The menu
+  reports what's on and when it changes instead.
+- The dealer takes block colours from the active theme.
+
+### Fixed
+
+- A celebration that throws now falls back to the plain shatter instead of
+  drawing nothing — a clear that skips its animation looks like the game
+  missed a beat.
+- The service worker no longer registers on localhost. It cached modules
+  during development and served stale ones to a freshly loaded page, which
+  cost an hour of chasing an effect that silently did nothing.
+
+### Notes
+
+- All of it is frozen or cut short under **Reduce Motion**: the scenery
+  stops drifting but stays visible, every ring and ray is dropped, and the
+  block animations run for a quarter of a second.
+
+---
+
 ## 0.1.0 — 2026-07-26
 
 A pass over everything the player actually touches: the assists are gone,

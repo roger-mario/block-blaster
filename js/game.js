@@ -256,6 +256,37 @@ export class Game extends Emitter {
     }
   }
 
+  /**
+   * Restyles every block already on the board and in the tray.
+   *
+   * Purely cosmetic — colours carry no meaning in the rules — but a theme
+   * switch that only restyled *future* pieces would leave the board half
+   * in the old palette, which reads as a bug.
+   */
+  recolour(mapColour) {
+    if (typeof mapColour !== "function") return;
+
+    for (let r = 0; r < BOARD_SIZE; r++) {
+      for (let c = 0; c < BOARD_SIZE; c++) {
+        if (this.board[r][c]) this.board[r][c] = mapColour(this.board[r][c]);
+      }
+    }
+    for (const piece of this.tray) {
+      if (piece) piece.color = mapColour(piece.color);
+    }
+    // the undo snapshot has to move with it, or a rewind repaints the past
+    if (this._undo) {
+      for (let r = 0; r < BOARD_SIZE; r++) {
+        for (let c = 0; c < BOARD_SIZE; c++) {
+          if (this._undo.board[r][c]) this._undo.board[r][c] = mapColour(this._undo.board[r][c]);
+        }
+      }
+      for (const piece of this._undo.tray) {
+        if (piece) piece.color = mapColour(piece.color);
+      }
+    }
+  }
+
   isBoardEmpty() {
     return this.board.every((row) => row.every((cell) => !cell));
   }

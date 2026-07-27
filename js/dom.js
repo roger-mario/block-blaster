@@ -45,6 +45,16 @@ export const el = {
   scoreList: document.getElementById("scoreList"),
   boardScope: document.getElementById("boardScope"),
   boardNote: document.getElementById("boardNote"),
+  themeStatus: document.getElementById("themeStatus"),
+  themeWhen: document.getElementById("themeWhen"),
+  sceneryStatus: document.getElementById("sceneryStatus"),
+
+  // theme
+  scenery: document.getElementById("scenery"),
+  themeNotice: document.getElementById("themeNotice"),
+  themeNoticeKind: document.getElementById("themeNoticeKind"),
+  themeNoticeName: document.getElementById("themeNoticeName"),
+  themeNoticeBlurb: document.getElementById("themeNoticeBlurb"),
 };
 
 export const CELL_INSET = 1.5; // must match the .cell margin in styles.css

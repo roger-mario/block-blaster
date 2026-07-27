@@ -6,7 +6,22 @@
  */
 
 /** Shown in the menu. Bump it whenever you ship — and add a CHANGELOG entry. */
-export const APP_VERSION = "0.1.0";
+export const APP_VERSION = "0.2.0";
+
+/**
+ * The look, and how often it changes.
+ *
+ * Themes rotate on a fixed schedule rather than at random: the same theme
+ * for everyone on the same day, holding for `periodDays`. Rare enough to
+ * be a small event, frequent enough to be worth coming back for. See
+ * themes.js.
+ */
+export const THEME_ROTATION = {
+  periodDays: 3,        // how long one look holds before the next
+  autoValue: "auto",    // the stored value meaning "follow the rotation"
+  seenKey: "blockdrop-theme-seen", // last rotation the player was shown
+  noticeMs: 2600,       // how long the "new look" notice stays up
+};
 
 export const BOARD_SIZE = 8;
 export const TRAY_SLOTS = 3;
@@ -128,6 +143,13 @@ export const TIMING = {
   tipDuration: 1700,  // how long a tapped lifeline shows its label
   shakeDuration: 460,
   badgeGap: 900,      // ms between stacked bonus badges
+  shockwaveLife: 720, // expanding ring on a shockwave celebration
+  cascadeLife: 900,   // blocks falling off the bottom of the board
+  prismLife: 620,     // colour beams streaking along the line
+  novaLife: 1000,     // collapse-then-detonate, the rarest one
+  boardClearLife: 1400, // the whole-board celebration
+  sceneryFade: 900,   // cross-fade when the background changes on level up
+  emberLife: 1150,    // how long an ember drifts before it burns out
 };
 
 export const FX = {
@@ -163,6 +185,7 @@ export const STORAGE_KEY = "blockdrop-best";
 export const LEADERBOARD_KEY = "blockdrop-leaderboard";
 export const PLAYER_KEY = "blockdrop-player";
 export const PLAYER_ID_KEY = "blockdrop-player-id";
+export const THEME_KEY = "blockdrop-theme";
 
 /** How many entries the leaderboard keeps. */
 export const LEADERBOARD_SIZE = 10;

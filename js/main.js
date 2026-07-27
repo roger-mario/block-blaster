@@ -15,6 +15,15 @@ import * as render from "./render.js";
 import * as fx from "./effects.js";
 import { PlacementController } from "./input.js";
 import { attachMenu, recordResult, renderGameOverName } from "./menu.js";
+import {
+  initScenery,
+  currentTheme,
+  onThemeChange,
+  applyScenery,
+  advanceScenery,
+  announceScenery,
+} from "./scenery.js";
+import { remapColour } from "./themes.js";
 
 const game = new Game();
 
@@ -33,6 +42,7 @@ function drawLevel() {
 // ---------- game events ----------
 
 game.on("reset", () => {
+  applyScenery(game.level);
   fx.clearAllFx();
   input.cancel();
   render.hideGameOver();
@@ -54,13 +64,23 @@ game.on("clear", (event) => {
   if (label) fx.queueBadge(label);
 });
 
-game.on("bonus", ({ label, points }) => {
+game.on("bonus", ({ type, label, points }) => {
   fx.queueBadge(`${label} +${points}`, "bonus");
+
+  // emptying the board gets its own animation on top of the line clear
+  if (type === "perfect") {
+    setTimeout(() => fx.playBoardClearFx(game.level), TIMING.boardSyncDelay + 120);
+  }
 });
 
-game.on("levelup", ({ level }) => {
+game.on("levelup", ({ level, previous }) => {
   drawLevel();
   fx.playLevelUpFx(level);
+
+  // the background is the visible proof you got further — see
+  // ANIMATION-STRATEGY.md, category 3
+  const scenery = advanceScenery(previous, level);
+  if (scenery) setTimeout(() => announceScenery(scenery), 900);
 });
 
 game.on("score", ({ score, best, isNewBest, delta }) => {
@@ -135,6 +155,14 @@ render.mountLifelines((id) => {
   game.useLifeline(id);
 });
 
+// Picking a theme mid-game restyles what's already down, not just what
+// gets dealt next.
+onThemeChange(({ from, to }) => {
+  game.recolour((colour) => remapColour(colour, from, to));
+  render.renderBoard(game.board);
+  drawTray();
+});
+
 el.restartBtn.addEventListener("click", () => game.reset());
 
 // redraw on rotate/resize so the pixel geometry stays correct
@@ -144,6 +172,10 @@ window.addEventListener("resize", () => {
 });
 
 // ---------- boot ----------
+
+// The theme lands first: everything below reads the colours it sets, so
+// painting it afterwards would show one frame of the wrong palette.
+initScenery(game.level);
 
 buildBoardCells();
 attachMenu(game);
@@ -155,14 +187,30 @@ drawLevel();
 render.renderLifelines(game.lifelineStatuses());
 drawTray();
 
-if ("serviceWorker" in navigator) {
+/*
+ * Offline support — but never on localhost.
+ *
+ * The worker caches every module, and during development that means an
+ * edited file can keep serving its old version to a page that has already
+ * loaded a newer one. The symptom is an import error or an effect that
+ * silently does nothing, and it costs half an hour to work out. Live
+ * deploys still get the worker; local ones never do.
+ */
+const isLocal = ["localhost", "127.0.0.1", "[::1]"].includes(location.hostname);
+
+if ("serviceWorker" in navigator && !isLocal) {
   window.addEventListener("load", () => {
     navigator.serviceWorker.register("./service-worker.js").catch(() => {});
   });
+} else if (isLocal && "serviceWorker" in navigator) {
+  // clear out a worker registered by an earlier visit to this port
+  navigator.serviceWorker.getRegistrations().then((regs) => {
+    for (const reg of regs) reg.unregister();
+  }).catch(() => {});
 }
 
 // handy while developing — open the browser console and poke at these:
 //   blockdrop.game.board          inspect the grid
 //   blockdrop.findBestPlacement(blockdrop.game)   ask the solver for a move
-window.blockdrop = { game, input, findBestPlacement, render, fx };
+window.blockdrop = { game, input, findBestPlacement, render, fx, currentTheme };
 window.game = game;

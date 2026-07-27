@@ -3,17 +3,37 @@
    Organised as: layout → header → board → effects → tray → overlay
    ========================================================= */
 
+/*
+ * These are only the starting values. js/scenery.js overwrites every one
+ * of them on boot from whichever theme is in force, so a new theme is a
+ * data change in js/themes.js and needs no CSS at all. Anything that
+ * wants to be themeable just has to read a variable from here.
+ */
 :root {
   color-scheme: dark;
   --bg: #0f1122;
   --surface: rgba(255, 255, 255, 0.05);
   --surface-strong: rgba(255, 255, 255, 0.09);
   --empty-cell: rgba(255, 255, 255, 0.04);
+  --board-bg: rgba(255, 255, 255, 0.06);
   --text: #ffffff;
   --text-dim: rgba(255, 255, 255, 0.45);
   --gold: #ffd23f;
   --cell-radius: 6px;
+  --block-gloss: rgba(255, 255, 255, 0.26);
+  --scenery-1: rgba(77, 166, 242, 0.20);
+  --scenery-2: rgba(179, 128, 242, 0.16);
+  --scenery-3: rgba(89, 204, 204, 0.12);
 }
+
+/* a theme switch should glide, not snap */
+html { transition: background 0.6s ease; }
+
+body,
+#board,
+.cell,
+.level,
+.tray-slot { transition: background 0.5s ease, box-shadow 0.5s ease; }
 
 * {
   box-sizing: border-box;
@@ -161,6 +181,12 @@ header {
  * so the row reads as "your three options" rather than a toolbar of
  * unrelated buttons.
  */
+/*
+ * The spare height is shared out by four auto margins — two here and two
+ * on the tray. Flexbox splits free space equally between them, which puts
+ * the toolbar dead centre between the progress bar and the board, and the
+ * tray dead centre between the board and the bottom of the screen.
+ */
 #toolbar {
   position: relative;
   flex: 0 0 auto;
@@ -168,7 +194,8 @@ header {
   align-items: center;
   justify-content: center;
   height: 44px;
-  margin-top: 8px;
+  margin-top: auto;
+  margin-bottom: auto;
 }
 
 .lifeline-bar {
@@ -401,13 +428,14 @@ header {
 
 /* ---------- board ---------- */
 
+/* Takes no spare height and adds no padding — the auto margins above and
+   below it are what position everything. */
 #board-wrap {
-  flex: 1 1 auto;
+  flex: 0 1 auto;
   min-height: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 6px 0;
 }
 
 /*
@@ -430,7 +458,7 @@ header {
   grid-template-rows: repeat(8, 1fr);
   width: 100%;
   aspect-ratio: 1 / 1;
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--board-bg);
   border-radius: 14px;
   overflow: hidden;
   transition: box-shadow 0.2s ease;
@@ -476,7 +504,7 @@ header {
   transition: background 0.12s linear;
 }
 
-.cell.filled { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.25); }
+.cell.filled { box-shadow: inset 0 0 0 1px var(--block-gloss); }
 
 /* drag preview */
 .cell.preview-ok  { box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.5); }
@@ -637,12 +665,15 @@ header {
  * long empty strip at the bottom of the screen — the pieces inside are
  * drawn at a fixed pixel size, so the extra height was never used.
  */
+/* Its two auto margins centre it in the space under the board — see the
+   note on #toolbar. */
 #tray {
   flex: 0 0 auto;
   display: flex;
   gap: 10px;
-  height: clamp(84px, 15vh, 118px);
-  margin-top: 6px;
+  height: clamp(84px, 14vh, 116px);
+  margin-top: auto;
+  margin-bottom: auto;
 }
 
 .tray-slot {
@@ -667,8 +698,10 @@ header {
 
 .piece-cell {
   position: absolute;
-  border-radius: 5px;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.28);
+  /* tracks the board's block shape, so a square-cornered theme is square
+     in the tray too */
+  border-radius: calc(var(--cell-radius) * 0.85);
+  box-shadow: inset 0 0 0 1px var(--block-gloss);
 }
 
 /* the piece following your finger */
@@ -702,7 +735,7 @@ header {
    so the pop can't fight with the transform that tracks your finger */
 .drag-ghost .piece-cell {
   animation: grabPop 0.14s cubic-bezier(0.3, 1.5, 0.5, 1);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.4);
+  box-shadow: inset 0 0 0 1px var(--block-gloss), 0 0 0 1px rgba(255, 255, 255, 0.18);
 }
 
 @keyframes grabPop {
@@ -995,6 +1028,473 @@ header {
   pointer-events: none;
 }
 
+/* =========================================================
+   Theme framework — scenery, celebrations, the new-look notice
+   ========================================================= */
+
+/* ---------- scenery ---------- */
+
+/*
+ * The background, driven by your level (see js/sceneries.js).
+ *
+ * House rule: nothing sharp. Every layer is heavily blurred, sits well
+ * outside the viewport so no edge is ever visible, and the whole thing is
+ * masked with a soft radial falloff — so the scenery fades out toward the
+ * corners instead of meeting the screen with a line.
+ */
+#scenery {
+  position: fixed;
+  inset: -12vmax; /* overhang, so a blurred blob never shows an edge */
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  background: var(--scenery-haze, none);
+  /* the soft falloff that kills every hard edge at once */
+  -webkit-mask-image: radial-gradient(115% 90% at 50% 45%, #000 35%, transparent 100%);
+  mask-image: radial-gradient(115% 90% at 50% 45%, #000 35%, transparent 100%);
+  transition: opacity 0.45s ease;
+}
+
+/* the cross-fade when a level up changes the background */
+#scenery.swap { animation: sceneryFade 0.9s ease; }
+
+@keyframes sceneryFade {
+  0%   { opacity: 0.15; filter: blur(8px); }
+  100% { opacity: 1; filter: blur(0); }
+}
+
+#app,
+#dragLayer { position: relative; z-index: 1; }
+
+#scenery .blob {
+  position: absolute;
+  display: block;
+  border-radius: 50%;
+  filter: blur(var(--scenery-blur, 64px));
+  will-change: transform;
+  /* a second falloff on each blob, so even the blur has no boundary */
+  -webkit-mask-image: radial-gradient(circle at 50% 50%, #000 30%, transparent 72%);
+  mask-image: radial-gradient(circle at 50% 50%, #000 30%, transparent 72%);
+}
+
+#scenery .b1 {
+  width: 78vmin;
+  height: 78vmin;
+  top: -8vmin;
+  left: -14vmin;
+  background: var(--scenery-1);
+}
+
+#scenery .b2 {
+  width: 68vmin;
+  height: 68vmin;
+  right: -16vmin;
+  top: 22vh;
+  background: var(--scenery-2);
+}
+
+#scenery .b3 {
+  width: 88vmin;
+  height: 88vmin;
+  bottom: -24vmin;
+  left: 4vmin;
+  background: var(--scenery-3);
+}
+
+/*
+ * Motion variants. Each scenery names one; slow enough that you never
+ * catch it moving while you're concentrating.
+ */
+:root[data-motion="drift"] .b1 { animation: drift1 36s ease-in-out infinite; }
+:root[data-motion="drift"] .b2 { animation: drift2 44s ease-in-out infinite; }
+:root[data-motion="drift"] .b3 { animation: drift3 50s ease-in-out infinite; }
+
+:root[data-motion="sway"] .b1 { animation: sway1 40s ease-in-out infinite; }
+:root[data-motion="sway"] .b2 { animation: sway2 33s ease-in-out infinite; }
+:root[data-motion="sway"] .b3 { animation: sway1 47s ease-in-out infinite reverse; }
+
+:root[data-motion="rise"] .b1 { animation: rise1 42s ease-in-out infinite; }
+:root[data-motion="rise"] .b2 { animation: rise2 38s ease-in-out infinite; }
+:root[data-motion="rise"] .b3 { animation: rise1 52s ease-in-out infinite reverse; }
+
+:root[data-motion="swirl"] .b1 { animation: swirl1 46s linear infinite; }
+:root[data-motion="swirl"] .b2 { animation: swirl2 54s linear infinite; }
+:root[data-motion="swirl"] .b3 { animation: swirl1 62s linear infinite reverse; }
+
+@keyframes drift1 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50%      { transform: translate(9vmin, 7vmin) scale(1.14); }
+}
+@keyframes drift2 {
+  0%, 100% { transform: translate(0, 0) scale(1.06); }
+  50%      { transform: translate(-11vmin, 9vmin) scale(0.92); }
+}
+@keyframes drift3 {
+  0%, 100% { transform: translate(0, 0) scale(0.96); }
+  50%      { transform: translate(7vmin, -10vmin) scale(1.1); }
+}
+
+@keyframes sway1 {
+  0%, 100% { transform: translate(-6vmin, 0) scale(1.04); }
+  50%      { transform: translate(8vmin, 3vmin) scale(0.96); }
+}
+@keyframes sway2 {
+  0%, 100% { transform: translate(5vmin, 2vmin) scale(0.98); }
+  50%      { transform: translate(-7vmin, -3vmin) scale(1.12); }
+}
+
+@keyframes rise1 {
+  0%, 100% { transform: translate(0, 6vmin) scale(1); }
+  50%      { transform: translate(3vmin, -8vmin) scale(1.16); }
+}
+@keyframes rise2 {
+  0%, 100% { transform: translate(0, -4vmin) scale(1.08); }
+  50%      { transform: translate(-4vmin, 7vmin) scale(0.94); }
+}
+
+@keyframes swirl1 {
+  0%   { transform: rotate(0deg) translateX(6vmin) rotate(0deg) scale(1.05); }
+  100% { transform: rotate(360deg) translateX(6vmin) rotate(-360deg) scale(1.05); }
+}
+@keyframes swirl2 {
+  0%   { transform: rotate(0deg) translateX(9vmin) rotate(0deg) scale(0.95); }
+  100% { transform: rotate(-360deg) translateX(9vmin) rotate(360deg) scale(0.95); }
+}
+
+/* the wash when the theme changes under you */
+#board.theme-swap { animation: themeSwap 0.65s ease-out; }
+
+@keyframes themeSwap {
+  0%   { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0); }
+  35%  { box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.55), 0 0 40px rgba(255, 255, 255, 0.2); }
+  100% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0); }
+}
+
+/* ---------- "new look" notice ---------- */
+
+/*
+ * Sits low enough to clear the header rather than landing on top of the
+ * level badge, and stays on one line at any width — a notice that reflows
+ * into three lines reads as an error message, not a flourish.
+ */
+#themeNotice {
+  position: fixed;
+  left: 50%;
+  top: calc(max(14px, env(safe-area-inset-top)) + 96px);
+  z-index: 120;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: min(92vw, 420px);
+  padding: 9px 16px;
+  border-radius: 100px;
+  background: rgba(14, 16, 32, 0.95);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5), inset 0 0 0 1px rgba(255, 255, 255, 0.16);
+  opacity: 0;
+  transform: translate(-50%, -14px);
+  pointer-events: none;
+  transition: opacity 0.3s ease, transform 0.35s cubic-bezier(0.2, 0.9, 0.3, 1);
+}
+
+#themeNotice .lines {
+  min-width: 0;
+  overflow: hidden;
+}
+
+#themeNotice b,
+#themeNotice i {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.3;
+}
+
+#themeNotice.show { opacity: 1; transform: translate(-50%, 0); }
+
+/* filled in from the theme's own block colours by scenery.js — the
+   scenery variables are far too faint to read at this size */
+#themeNotice .dot {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 14px;
+  border-radius: 50%;
+  background: var(--gold);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.35);
+}
+
+#themeNotice b {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--text);
+}
+
+#themeNotice i {
+  font-style: normal;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+/* ---------- celebration: shockwave ---------- */
+
+/* the ring that blasts out of the middle of a big clear */
+.shockring {
+  position: absolute;
+  border-radius: 50%;
+  border: 3px solid rgba(255, 255, 255, 0.9);
+  opacity: 0;
+  mix-blend-mode: screen;
+  animation: shockOut 0.7s cubic-bezier(0.15, 0.75, 0.25, 1) forwards;
+}
+
+@keyframes shockOut {
+  0%   { opacity: 0.95; transform: scale(0.18); border-width: 4px; }
+  70%  { opacity: 0.35; }
+  100% { opacity: 0; transform: scale(3.4); border-width: 1px; }
+}
+
+/* a block thrown along its own line out from the centre */
+.blast {
+  position: absolute;
+  border-radius: var(--cell-radius);
+  box-shadow: inset 0 0 0 1px var(--block-gloss);
+  animation: blastOut 0.66s cubic-bezier(0.2, 0.7, 0.3, 1) forwards;
+}
+
+@keyframes blastOut {
+  0%   { transform: translate(0, 0) scale(1); filter: brightness(1); opacity: 1; }
+  18%  { transform: translate(0, 0) scale(1.25); filter: brightness(2.6); }
+  100% {
+    transform: translate(var(--dx), var(--dy)) scale(0.2) rotate(var(--spin));
+    filter: brightness(1.2);
+    opacity: 0;
+  }
+}
+
+/* ---------- celebration: embers ---------- */
+
+/* a block lifting off the board and burning away */
+.ember {
+  position: absolute;
+  border-radius: var(--cell-radius);
+  box-shadow: inset 0 0 0 1px var(--block-gloss);
+  animation: emberRise 1.1s cubic-bezier(0.25, 0.5, 0.2, 1) forwards;
+}
+
+@keyframes emberRise {
+  0%   { transform: translate(0, 0) scale(1); filter: brightness(1); opacity: 1; }
+  15%  { transform: translate(0, 4px) scale(1.1); filter: brightness(2.2) saturate(1.4); }
+  55%  { filter: brightness(1.6) saturate(1.5); opacity: 0.9; }
+  100% {
+    transform: translate(var(--drift), var(--rise)) scale(0.34) rotate(var(--spin));
+    filter: brightness(1.1) saturate(1.6);
+    opacity: 0;
+  }
+}
+
+/* ---------- block surfaces ---------- */
+
+/*
+ * What a block is made of, not just what colour it is. The theme names
+ * one; the block's own colour still comes through as the background, so
+ * these are all overlays on top of it.
+ *
+ * `.cell.filled` is the board, `.piece-cell` is the tray and the dragged
+ * piece — both get the same treatment so a piece looks the same in your
+ * hand as it does once it lands.
+ */
+/*
+ * No `position` here on purpose. `.cell` is already relative and
+ * `.piece-cell` is absolutely positioned by render.js — forcing either one
+ * would tear the tray layout apart. Both already establish a containing
+ * block for the ::before overlay.
+ */
+.cell.filled,
+.piece-cell {
+  overflow: hidden;
+}
+
+.cell.filled::before,
+.piece-cell::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+/* gloss — a clean sheet of glass, light from the top */
+:root[data-block="gloss"] .cell.filled::before,
+:root[data-block="gloss"] .piece-cell::before {
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.38) 0%, rgba(255, 255, 255, 0.06) 46%, rgba(0, 0, 0, 0.16) 100%);
+}
+
+/* candy — fat soft highlight, like a boiled sweet */
+:root[data-block="candy"] .cell.filled::before,
+:root[data-block="candy"] .piece-cell::before {
+  background:
+    radial-gradient(60% 46% at 32% 24%, rgba(255, 255, 255, 0.62), transparent 70%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(0, 0, 0, 0.22));
+}
+
+/* gem — a cut stone: one bright facet, one dark one */
+:root[data-block="gem"] .cell.filled::before,
+:root[data-block="gem"] .piece-cell::before {
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.5) 0%, transparent 42%),
+    linear-gradient(310deg, rgba(0, 0, 0, 0.34) 0%, transparent 45%);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.22);
+}
+
+/* bubble — off-centre specular dot and a lit rim */
+:root[data-block="bubble"] .cell.filled::before,
+:root[data-block="bubble"] .piece-cell::before {
+  background:
+    radial-gradient(38% 30% at 30% 26%, rgba(255, 255, 255, 0.85), transparent 62%),
+    radial-gradient(120% 120% at 70% 80%, rgba(0, 0, 0, 0.3), transparent 60%);
+  box-shadow: inset 0 0 8px rgba(255, 255, 255, 0.28);
+}
+
+/* ---------- celebration: cascade ---------- */
+
+/* the line gives way and falls off the bottom of the board */
+.fall {
+  position: absolute;
+  border-radius: var(--cell-radius);
+  box-shadow: inset 0 0 0 1px var(--block-gloss);
+  animation: fallAway 0.85s cubic-bezier(0.4, 0, 0.7, 1) forwards;
+}
+
+@keyframes fallAway {
+  0%   { transform: translate(0, 0) rotate(0deg); opacity: 1; }
+  12%  { transform: translate(0, -8px) rotate(0deg); filter: brightness(1.8); }
+  100% {
+    transform: translate(var(--sway), var(--fall)) rotate(var(--spin));
+    opacity: 0;
+  }
+}
+
+/* ---------- celebration: prism ---------- */
+
+/* each block stretches into a beam of its own colour along the line */
+.beam-h,
+.beam-v {
+  position: absolute;
+  border-radius: 999px;
+  mix-blend-mode: screen;
+}
+
+.beam-h { animation: beamH 0.6s cubic-bezier(0.2, 0.8, 0.3, 1) forwards; }
+.beam-v { animation: beamV 0.6s cubic-bezier(0.2, 0.8, 0.3, 1) forwards; }
+
+@keyframes beamH {
+  0%   { transform: scaleX(1) scaleY(1); opacity: 1; filter: brightness(1); }
+  30%  { transform: scaleX(2.6) scaleY(0.7); filter: brightness(2.4); }
+  100% { transform: scaleX(9) scaleY(0.16); opacity: 0; filter: brightness(3); }
+}
+
+@keyframes beamV {
+  0%   { transform: scaleY(1) scaleX(1); opacity: 1; filter: brightness(1); }
+  30%  { transform: scaleY(2.6) scaleX(0.7); filter: brightness(2.4); }
+  100% { transform: scaleY(9) scaleX(0.16); opacity: 0; filter: brightness(3); }
+}
+
+/* ---------- celebration: nova ---------- */
+
+/* in toward the middle, a held beat, then out much further than it came */
+.nova {
+  position: absolute;
+  border-radius: var(--cell-radius);
+  box-shadow: inset 0 0 0 1px var(--block-gloss);
+  animation: novaOut 0.95s cubic-bezier(0.3, 0, 0.2, 1) forwards;
+}
+
+@keyframes novaOut {
+  0%   { transform: translate(0, 0) scale(1); filter: brightness(1); opacity: 1; }
+  34%  { transform: translate(var(--inx), var(--iny)) scale(0.62); filter: brightness(2.6); }
+  46%  { transform: translate(var(--inx), var(--iny)) scale(0.5); filter: brightness(4); }
+  100% {
+    transform: translate(var(--outx), var(--outy)) scale(0.14) rotate(var(--spin));
+    filter: brightness(1.4);
+    opacity: 0;
+  }
+}
+
+.nova-ring {
+  position: absolute;
+  border-radius: 50%;
+  border: 4px solid rgba(255, 255, 255, 0.95);
+  opacity: 0;
+  mix-blend-mode: screen;
+  animation: novaRing 0.95s cubic-bezier(0.3, 0, 0.15, 1) forwards;
+}
+
+@keyframes novaRing {
+  0%   { opacity: 0; transform: scale(0.5); }
+  40%  { opacity: 0; transform: scale(0.3); }
+  55%  { opacity: 1; transform: scale(0.6); border-width: 6px; }
+  100% { opacity: 0; transform: scale(4.6); border-width: 1px; }
+}
+
+/* ---------- category 2: the whole board went ---------- */
+
+#board.board-clear-flash { animation: boardClear 1.3s ease-out; }
+
+@keyframes boardClear {
+  0%   { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0); }
+  20%  { box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.9), inset 0 0 70px rgba(255, 255, 255, 0.45); }
+  60%  { box-shadow: 0 0 0 3px rgba(255, 230, 140, 0.6), inset 0 0 40px rgba(255, 220, 120, 0.2); }
+  100% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0); }
+}
+
+/* bloom — rings of light opening out */
+.bloom-ring {
+  position: absolute;
+  border-radius: 50%;
+  border: 3px solid rgba(255, 245, 200, 0.9);
+  opacity: 0;
+  mix-blend-mode: screen;
+  animation: bloomOut 1.2s cubic-bezier(0.15, 0.7, 0.25, 1) forwards;
+}
+
+@keyframes bloomOut {
+  0%   { opacity: 0.95; transform: scale(0.2); border-width: 5px; }
+  100% { opacity: 0; transform: scale(4.2); border-width: 1px; }
+}
+
+/* starburst — rays firing out from the middle */
+.starburst-ray {
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(255, 220, 120, 0));
+  transform-origin: 50% 0;
+  mix-blend-mode: screen;
+  animation: rayOut 1.1s cubic-bezier(0.2, 0.8, 0.3, 1) forwards;
+}
+
+@keyframes rayOut {
+  0%   { opacity: 0; transform: rotate(var(--angle)) scaleY(0.2); }
+  25%  { opacity: 1; }
+  100% { opacity: 0; transform: rotate(var(--angle)) scaleY(1) translateY(var(--reach)); height: var(--reach); }
+}
+
+/* implode — motes rush inward before the burst */
+.implode-mote {
+  position: absolute;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.95), rgba(255, 220, 140, 0));
+  mix-blend-mode: screen;
+  animation: moteIn 0.9s cubic-bezier(0.5, 0, 0.9, 0.6) forwards;
+}
+
+@keyframes moteIn {
+  0%   { opacity: 0; transform: translate(0, 0) scale(0.5); }
+  25%  { opacity: 1; }
+  100% { opacity: 0; transform: translate(var(--tox), var(--toy)) scale(1.6); }
+}
+
 /* ---------- accessibility ---------- */
 
 @media (prefers-reduced-motion: reduce) {
@@ -1018,6 +1518,29 @@ header {
 
   #menuPanel,
   #menuBackdrop { animation: none; }
+
+  /* the scenery stops drifting but stays visible — it's part of the look,
+     not an effect */
+  #scenery .blob { animation: none; }
+
+  #board.theme-swap { animation: none; }
+  #scenery.swap { animation: none; }
+
+  .shockring,
+  .nova-ring,
+  .bloom-ring,
+  .starburst-ray,
+  .implode-mote { display: none; }
+
+  .blast,
+  .ember,
+  .fall,
+  .beam-h,
+  .beam-v,
+  .nova { animation-duration: 0.25s; }
+
+  #board.board-clear-flash { animation-duration: 0.3s; }
+  #themeNotice { transition: opacity 0.2s ease; }
 
   .lifeline,
   .lifeline .tip { transition: none; }

@@ -15,6 +15,22 @@
 </head>
 <body>
 
+<!-- drifting background; colours come from the active theme -->
+<div id="scenery" aria-hidden="true">
+  <span class="blob b1"></span>
+  <span class="blob b2"></span>
+  <span class="blob b3"></span>
+</div>
+
+<!-- shown once when the rotating theme has moved on since your last visit -->
+<div id="themeNotice" role="status" aria-live="polite">
+  <span class="dot" aria-hidden="true"></span>
+  <span class="lines">
+    <b><span id="themeNoticeKind">New look</span>: <span id="themeNoticeName"></span></b>
+    <i id="themeNoticeBlurb"></i>
+  </span>
+</div>
+
 <div id="app">
   <header>
     <div class="stat">
@@ -106,6 +122,12 @@
       <p class="hint" id="nameStatus">Add a name to join the board</p>
       <ol id="scoreList"></ol>
       <p class="hint quiet" id="boardNote"></p>
+    </section>
+
+    <section>
+      <h3>Look <span class="tag" id="themeWhen"></span></h3>
+      <p class="hint" id="themeStatus"></p>
+      <p class="hint quiet" id="sceneryStatus"></p>
     </section>
 
     <section class="how-section">

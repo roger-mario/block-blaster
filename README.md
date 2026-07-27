@@ -1,6 +1,6 @@
 # Block Drop
 
-**v0.1.0** — see [CHANGELOG.md](CHANGELOG.md)
+**v0.2.0** — see [CHANGELOG.md](CHANGELOG.md) · how the visuals are planned: [ANIMATION-STRATEGY.md](ANIMATION-STRATEGY.md)
 
 A block-puzzle game that runs in the browser, installs to your iPhone home
 screen, and costs nothing to host. No Xcode, no Apple developer fee, no
@@ -52,6 +52,7 @@ so any version can be brought back exactly as it shipped:
 |---|---|
 | `release/v0.0.4` | the shared leaderboard release |
 | `release/v0.1.0` | lifelines, drag-only placement, rebalanced layout |
+| `release/v0.2.0` | the visual framework — animations, scenery, block surfaces |
 
 Three ways back, easiest first:
 
@@ -111,6 +112,10 @@ js/
   emitter.js        tiny publish/subscribe helper
   storage.js        localStorage that can't throw
   leaderboard.js    names and scores, shared board + local fallback
+  themes.js         the look, and the calendar that rotates it
+  sceneries.js      the background, one per level
+  scenery.js        paints a theme onto the page
+  celebrations.js   which clear animation plays, and when
   game.js           all the rules. Never touches the DOM.
   solver.js         scores candidate moves (dev tool; see Debugging)
   dom.js            element references and pixel geometry
@@ -121,6 +126,7 @@ js/
   main.js           wiring — connects game events to visuals
 tests/              node --test suite, no dependencies
 CHANGELOG.md        what changed in each version
+ANIMATION-STRATEGY.md  the visual plan — read before adding an effect
 service-worker.js   offline support + cache busting
 ```
 
@@ -157,6 +163,74 @@ The events available are `reset`, `place`, `clear`, `bonus`, `levelup`,
 ---
 
 ## Features
+
+### The look, and how it changes
+
+Four themes — Midnight, Sunset, Forest, Neon. Each one changes the
+background, the block palette, the **shape** of the blocks and the glow
+behind the board.
+
+The theme is chosen from the **calendar, not at random**. Everyone playing
+on the same day sees the same one and it holds for three days
+(`THEME_ROTATION.periodDays`) before moving on. That's the whole idea: a
+look that changed every game would be noise, and one that never changed
+would be wallpaper. Rotating slowly makes it something you notice on the
+way back.
+
+The first time you open the game after the rotation has moved on, a notice
+says so — once per rotation, and never for anyone who has picked a theme
+by hand.
+
+The **Look** section of the menu shows every theme as a card of its own
+colours, and how long the current one has left. "Auto" is a card too, so
+the rotation is one of the choices rather than a setting to find. Picking
+a theme mid-game restyles the blocks already on the board as well as the
+ones still to come.
+
+#### Adding a theme
+
+One object in `js/themes.js` and nothing else:
+
+```js
+{
+  id: "ice",
+  name: "Ice",
+  blurb: "Pale blue, sharp edges",
+  vars: { "--bg": "#0a1420", /* …the same keys every theme sets… */ },
+  blocks: ["#8ad8ff", /* …seven colours… */],
+}
+```
+
+No CSS. Every colour in `styles.css` already reads from a custom property,
+and `scenery.js` writes the theme's values onto `:root` at boot. A test
+enforces that a new theme sets exactly the same variables and a full
+palette, so a half-finished one fails the suite rather than shipping a
+half-styled page.
+
+### Clear animations
+
+Three, and which one plays is decided by two rules in
+`js/celebrations.js`:
+
+| Rule | What it does |
+|---|---|
+| **Escalation** | A single line always gets the plain shatter. The louder animations are reserved for a double or better, so a big clear *looks* different rather than just bigger. |
+| **Rotation** | Consecutive big clears cycle through the eligible animations instead of repeating one. |
+
+| Animation | From | What it looks like |
+|---|---|---|
+| `shatter` | 1 line | Blocks flash white, swell and break into shards |
+| `shockwave` | 2 lines | A ring blasts out of the centre and throws each block along its own line |
+| `ember` | 2 lines | Blocks lift off the board, turn, and burn away upward |
+
+The rotation is a **counter, not a random roll**, so a given sequence of
+clears always produces the same sequence of animations — which is what
+makes it testable. A run of single-line clears deliberately doesn't spin
+the counter, so it can't quietly decide which animation your next double
+gets.
+
+Adding a fourth is one entry in `js/celebrations.js` and one `case` in
+`js/effects.js`. Nothing else in the game has to know.
 
 ### The screen
 
@@ -477,6 +551,8 @@ Almost everything is in `js/config.js`:
 | `DEALER.fitBoost` | preference for shapes that fit the board right now |
 | `DEALER.crowdPenalty` | how hard duplicate shapes in one tray are damped |
 | `LEADERBOARD_SIZE` | how many scores the table keeps |
+| `THEME_ROTATION.periodDays` | how long one look holds before the next |
+| `THEME_ROTATION.noticeMs` | how long the "new look" notice stays up |
 | `FX.dragLift` | how far the piece sits above your finger (touch) |
 | `FX.dragScale` | how much a picked-up piece swells |
 | `FX.tapSlop` | how far a press may move before it becomes a drag |
