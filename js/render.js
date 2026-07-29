@@ -90,8 +90,13 @@ export function showPreview(preview, piece, origin) {
 
 /**
  * Builds the lifeline buttons, in the toolbar and again on the Game Over
- * screen — a wipe or a shuffle can pull you back out of a dead end, so
- * they have to be reachable from there too.
+ * screen.
+ *
+ * The Game Over row is not the toolbar again: it only ever holds the
+ * lifelines marked `rescue` in config.js — Wipe, and nothing else. The
+ * others are decisions you make with the board in front of you, and
+ * re-offering them at the end turned them into something you accept
+ * rather than spend.
  *
  * Buttons are never given the `disabled` attribute. A locked lifeline
  * still has to be tappable, because tapping it is how you find out *why*
@@ -101,7 +106,9 @@ export function mountLifelines(onUse) {
   for (const bar of [el.lifelines, el.overlayLifelines]) {
     bar.replaceChildren();
 
-    for (const spec of LIFELINES) {
+    const specs = bar === el.overlayLifelines ? LIFELINES.filter((l) => l.rescue) : LIFELINES;
+
+    for (const spec of specs) {
       const button = document.createElement("button");
       button.type = "button";
       button.className = "lifeline";
@@ -143,11 +150,9 @@ function peekTip(button) {
 
 /** Paints every lifeline button from the game's own verdict. */
 export function renderLifelines(statuses) {
-  let anyAvailable = false;
+  let anyRescue = false;
 
   for (const status of statuses) {
-    if (status.available) anyAvailable = true;
-
     for (const button of document.querySelectorAll(`.lifeline[data-life="${status.id}"]`)) {
       button.classList.toggle("used", status.used);
       button.classList.toggle("locked", !status.available && !status.used);
@@ -166,11 +171,16 @@ export function renderLifelines(statuses) {
     // The Game Over row is an offer, not a status display: a lifeline you
     // can't use there is just noise, so it isn't shown at all.
     const rescueBtn = el.overlayLifelines.querySelector(`[data-life="${status.id}"]`);
-    if (rescueBtn) rescueBtn.hidden = !status.available;
+    if (rescueBtn) {
+      rescueBtn.hidden = !status.available;
+      if (status.available) anyRescue = true;
+    }
   }
 
-  // no point offering a second chance with nothing left in it
-  el.rescue.classList.toggle("empty", !anyAvailable);
+  // no point offering a second chance with nothing left in it — and the
+  // toolbar's own lifelines don't count towards that, since they never
+  // appear on this row
+  el.rescue.classList.toggle("empty", !anyRescue);
 }
 
 // ---------- tray ----------

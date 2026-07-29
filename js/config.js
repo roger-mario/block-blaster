@@ -6,7 +6,7 @@
  */
 
 /** Shown in the menu. Bump it whenever you ship — and add a CHANGELOG entry. */
-export const APP_VERSION = "0.4.1";
+export const APP_VERSION = "0.4.2";
 
 /**
  * The look — palette, block shape, block surface and scenery, all at once.
@@ -38,6 +38,16 @@ export const TRAY_SLOTS = 3;
  *
  *   maxLevel  the lifeline stops being offered above this level
  *   minLevel  the lifeline is locked until this level
+ *   rescue    this one — and only this one — is still offered once the
+ *             game is over
+ *
+ * `rescue` exists because the Game Over screen used to offer all four,
+ * and that was the wrong shape. A lifeline is a decision you make while
+ * you can still see the board; handing them back at the end turns them
+ * into a prompt you accept, and a Joker played from the death screen is
+ * a doubling nobody chose to risk anything for. Wipe keeps the exception
+ * because sweeping the board *is* the second chance — there's nothing
+ * left to decide about it.
  *
  * The order here is the order they appear on screen.
  */
@@ -61,6 +71,7 @@ export const LIFELINES = [
     label: "Wipe",
     tip: "Sweep the whole board clean",
     minLevel: 5,
+    rescue: true,
   },
   {
     id: "joker",

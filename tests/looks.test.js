@@ -4,6 +4,7 @@
 
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 
 import { COLORS } from "../js/config.js";
 import { MAX_LEVEL } from "../js/difficulty.js";
@@ -34,6 +35,29 @@ test("there are at least as many looks as levels", () => {
     LOOKS.length >= MAX_LEVEL,
     `${LOOKS.length} looks for ${MAX_LEVEL} levels — a full run would repeat`
   );
+});
+
+test("and headroom past the top of the ladder", () => {
+  // Exactly one look per level wrapped back to Midnight for anyone who
+  // also cleared the board on the way up, so the reward for a perfect
+  // clear was the look they had already been staring at.
+  assert.ok(
+    LOOKS.length > MAX_LEVEL,
+    `${LOOKS.length} looks and ${MAX_LEVEL} levels leaves nothing for a board clear`
+  );
+});
+
+test("every surface is worn by a look, and drawn by the stylesheet", () => {
+  const css = readFileSync(new URL("../css/styles.css", import.meta.url), "utf8");
+  const worn = new Set(LOOKS.map((l) => l.surface));
+
+  for (const surface of SURFACES) {
+    assert.ok(worn.has(surface), `${surface} is used by at least one look`);
+    assert.ok(
+      css.includes(`[data-surface="${surface}"]`),
+      `${surface} has its own rules — scenery.js sets the attribute and nothing else would`
+    );
+  }
 });
 
 test("every look is complete and unique", () => {

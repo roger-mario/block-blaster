@@ -146,7 +146,7 @@ test("rewind still works at level 5 itself", () => {
   assert.equal(countFilled(game.board), 0);
 });
 
-test("rewind can rescue you from game over", () => {
+test("rewind is withdrawn once the game is over", () => {
   const game = newGame();
   gridlock(game);
   game.tray = [piece(["X"]), piece(["XX"]), null];
@@ -154,10 +154,14 @@ test("rewind can rescue you from game over", () => {
   game.place(0, 0, 0);
   assert.equal(game.over, true);
 
-  assert.equal(game.canUndo(), true, "the fatal move is still on offer");
-  assert.equal(game.undo(), true);
-  assert.equal(game.over, false, "you're back in the game");
-  assert.equal(game.board[0][0], null);
+  // it used to un-kill you from the Game Over screen. A lifeline is a
+  // decision you take with the board in front of you, not an offer you
+  // accept at the end — only Wipe survives that.
+  assert.equal(game.canUndo(), false, "the fatal move is not handed back");
+  assert.equal(game.lifelineStatus("undo").reason, "Too late — the game is over");
+  assert.equal(game.undo(), false);
+  assert.equal(game.over, true, "still over");
+  assert.ok(game.board[0][0], "and the fatal move stands");
 });
 
 // ---------- shuffle ----------
@@ -224,19 +228,17 @@ test("shuffle drops the rewind snapshot — a new deal is a fresh position", () 
   assert.equal(game.lifelineStatus("undo").reason, "Nothing to take back");
 });
 
-test("shuffle can deal you back out of game over", () => {
+test("shuffle cannot deal you back out of game over", () => {
   const game = newGame();
   gridlock(game); // only a single square fits, at (0,0)
   game.tray = [piece(["XXX"]), null, null];
+  const before = game.tray.map((p) => p?.id ?? null);
   game.over = true;
 
-  let revived = null;
-  game.on("revive", (payload) => (revived = payload));
-
-  assert.equal(game.useLifeline("shuffle"), true);
-  // the dealer prefers shapes that fit the board it is handed
-  assert.equal(game.over, game.isGameOver());
-  if (!game.over) assert.equal(revived.reason, "shuffle");
+  assert.equal(game.useLifeline("shuffle"), false);
+  assert.equal(game.lifelineStatus("shuffle").reason, "Too late — the game is over");
+  assert.deepEqual(game.tray.map((p) => p?.id ?? null), before, "the tray stands");
+  assert.equal(game.lifelineUsed.shuffle, false, "and it is still yours to spend next game");
 });
 
 // ---------- wipe ----------
@@ -323,4 +325,63 @@ test("wipe breaks the combo — you did not earn those clears", () => {
 
   game.useLifeline("wipe");
   assert.equal(game.combo, 0);
+});
+
+// ---------- what a finished game still offers ----------
+
+test("exactly one lifeline is marked as a rescue, and it is the wipe", () => {
+  const rescues = LIFELINES.filter((spec) => spec.rescue).map((spec) => spec.id);
+  assert.deepEqual(rescues, ["wipe"]);
+});
+
+test("game over withdraws every lifeline except the rescue", () => {
+  const game = newGame();
+  gridlock(game);
+  atLevel(game, 5);
+  game.tray = [piece(["XXX"]), null, null];
+  game.over = true;
+
+  for (const spec of LIFELINES) {
+    const status = game.lifelineStatus(spec.id);
+    assert.equal(
+      status.available,
+      !!spec.rescue,
+      `${spec.id} is ${spec.rescue ? "" : "not "}on offer once the game is over`
+    );
+    if (!spec.rescue) assert.equal(status.reason, "Too late — the game is over");
+  }
+});
+
+test("the ordinary reason for being locked wins over the game-over one", () => {
+  // "Already used" is the more useful thing to read: it says the lifeline
+  // is gone for the rest of the game, not just gone from this screen.
+  const game = newGame();
+  game.tray = [piece(["X"]), piece(["X"]), piece(["X"])];
+  game.place(0, 0, 0);
+  game.undo();
+
+  game.over = true;
+  assert.equal(game.lifelineStatus("undo").reason, "Already used");
+});
+
+test("the lifeline row is repainted before the game over screen reads it", () => {
+  // The Game Over screen renders straight from the last `lifelines`
+  // event, so one emitted while `over` was still false would offer a
+  // rewind the rules have already taken away.
+  const game = newGame();
+  gridlock(game);
+  game.tray = [piece(["X"]), piece(["XX"]), null];
+
+  const order = [];
+  let atGameOver = null;
+  game.on("lifelines", ({ statuses }) => {
+    order.push("lifelines");
+    atGameOver = statuses;
+  });
+  game.on("gameover", () => order.push("gameover"));
+
+  game.place(0, 0, 0);
+
+  assert.deepEqual(order.slice(-2), ["lifelines", "gameover"]);
+  assert.equal(atGameOver.find((s) => s.id === "undo").available, false);
 });

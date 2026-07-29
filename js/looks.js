@@ -34,7 +34,7 @@
 import { COLORS } from "./config.js";
 
 /** What a block is made of. See the `[data-surface]` rules. */
-export const SURFACES = ["gloss", "candy", "gem", "bubble", "matte", "neon"];
+export const SURFACES = ["gloss", "candy", "gem", "bubble", "matte", "neon", "prism", "pixel"];
 
 const look = (id, name, blurb, surface, vars, blocks, scenery) => ({
   id, name, blurb, surface, vars, blocks, scenery,
@@ -200,6 +200,54 @@ export const LOOKS = [
     ["#ffd700", "#ffed4e", "#ff9500", "#fff3b0", "#e8a317", "#ffdd57", "#f6c700"],
     { motion: "swirl", blur: 76, haze: "radial-gradient(140% 110% at 50% 0%, rgba(255,190,60,0.28), transparent 76%)",
       tint: ["rgba(255,215,90,0.26)", "rgba(255,140,60,0.20)", "rgba(255,245,180,0.16)"] }),
+
+  // ----- past the top of the ladder -----
+  //
+  // Twenty looks covered a run from level 1 to 20 exactly, so a player who
+  // also cleared the board a few times wrapped back to Midnight while still
+  // climbing. These five are the reward for going further than the ladder
+  // goes, and they lean louder than the twenty above on purpose — by the
+  // time you see them you have earned something odd.
+
+  look("aurora", "Aurora", "Ribbons of light over the ice", "prism",
+    { "--bg": "#04121e", "--surface": "rgba(200,255,250,0.06)", "--surface-strong": "rgba(200,255,250,0.13)",
+      "--empty-cell": "rgba(180,250,245,0.08)", "--board-bg": "rgba(160,245,240,0.05)",
+      "--text": "#eafffb", "--text-dim": "rgba(210,255,250,0.46)", "--gold": "#7ff0d0", "--block-gloss": "rgba(255,255,255,0.5)" },
+    ["#5ff2c2", "#7ad9ff", "#b98cff", "#4fe0a0", "#8affd9", "#6ba8ff", "#d9a0ff"],
+    { motion: "sway", blur: 78, haze: "radial-gradient(140% 100% at 50% 0%, rgba(50,200,170,0.24), transparent 76%)",
+      tint: ["rgba(95,242,194,0.24)", "rgba(140,150,255,0.20)", "rgba(122,217,255,0.16)"] }),
+
+  look("pixel", "Pixel", "Chunky sprites, straight out of 1983", "pixel",
+    { "--bg": "#140b20", "--surface": "rgba(255,236,39,0.07)", "--surface-strong": "rgba(255,236,39,0.14)",
+      "--empty-cell": "rgba(131,118,156,0.16)", "--board-bg": "rgba(41,173,255,0.06)",
+      "--text": "#fff1e8", "--text-dim": "rgba(255,241,232,0.46)", "--gold": "#ffec27", "--block-gloss": "rgba(255,255,255,0.4)" },
+    ["#ff004d", "#00e436", "#29adff", "#ffec27", "#ff77a8", "#ffa300", "#83769c"],
+    { motion: "drift", blur: 58, haze: "radial-gradient(120% 100% at 50% 40%, rgba(90,50,160,0.24), transparent 72%)",
+      tint: ["rgba(255,0,77,0.18)", "rgba(41,173,255,0.20)", "rgba(255,236,39,0.14)"] }),
+
+  look("carnival", "Carnival", "Big top stripes and toffee apples", "candy",
+    { "--bg": "#1c0713", "--surface": "rgba(255,230,220,0.07)", "--surface-strong": "rgba(255,230,220,0.13)",
+      "--empty-cell": "rgba(255,220,215,0.08)", "--board-bg": "rgba(255,205,200,0.06)",
+      "--text": "#fff4f0", "--text-dim": "rgba(255,232,225,0.48)", "--gold": "#ffd23f", "--block-gloss": "rgba(255,255,255,0.42)" },
+    ["#ff3d68", "#ffd23f", "#2ec4b6", "#ff8c42", "#c04dff", "#f7f3e8", "#e0245e"],
+    { motion: "swirl", blur: 64, haze: "radial-gradient(130% 100% at 50% 15%, rgba(210,40,90,0.26), transparent 74%)",
+      tint: ["rgba(255,61,104,0.24)", "rgba(255,210,63,0.18)", "rgba(46,196,182,0.16)"] }),
+
+  look("vapor", "Vapor", "Sunset grid, cassette pink", "gloss",
+    { "--bg": "#170a2b", "--surface": "rgba(255,200,245,0.07)", "--surface-strong": "rgba(255,200,245,0.13)",
+      "--empty-cell": "rgba(240,180,255,0.09)", "--board-bg": "rgba(220,150,255,0.06)",
+      "--text": "#fdeeff", "--text-dim": "rgba(255,220,250,0.47)", "--gold": "#ff71ce", "--block-gloss": "rgba(255,255,255,0.46)" },
+    ["#ff6ec7", "#01cdfe", "#b967ff", "#fffb96", "#05ffa1", "#ff71ce", "#00e5ff"],
+    { motion: "rise", blur: 72, haze: "radial-gradient(140% 100% at 50% 85%, rgba(255,80,190,0.24), transparent 74%)",
+      tint: ["rgba(255,110,199,0.24)", "rgba(1,205,254,0.20)", "rgba(185,103,255,0.18)"] }),
+
+  look("slime", "Slime", "Glow-in-the-dark ooze", "bubble",
+    { "--bg": "#071206", "--surface": "rgba(200,255,150,0.07)", "--surface-strong": "rgba(200,255,150,0.14)",
+      "--empty-cell": "rgba(180,255,120,0.09)", "--board-bg": "rgba(160,255,90,0.06)",
+      "--text": "#f4ffe8", "--text-dim": "rgba(225,255,200,0.48)", "--gold": "#adff2f", "--block-gloss": "rgba(255,255,255,0.5)" },
+    ["#a8ff2e", "#39ff14", "#00ffb3", "#d7ff4f", "#5ee66b", "#8affd6", "#c1ff8f"],
+    { motion: "swirl", blur: 68, haze: "radial-gradient(130% 100% at 45% 90%, rgba(90,220,40,0.26), transparent 72%)",
+      tint: ["rgba(168,255,46,0.24)", "rgba(0,255,179,0.18)", "rgba(90,200,60,0.16)"] }),
 ];
 
 export const DEFAULT_LOOK = LOOKS[0];

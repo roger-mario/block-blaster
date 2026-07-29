@@ -1,6 +1,6 @@
 # Block Drop
 
-**v0.3.0** — see [CHANGELOG.md](CHANGELOG.md) · how the visuals are planned: [ANIMATION-STRATEGY.md](ANIMATION-STRATEGY.md)
+**v0.4.2** — see [CHANGELOG.md](CHANGELOG.md) · how the visuals are planned: [ANIMATION-STRATEGY.md](ANIMATION-STRATEGY.md)
 
 A block-puzzle game that runs in the browser, installs to your iPhone home
 screen, and costs nothing to host. No Xcode, no Apple developer fee, no
@@ -119,7 +119,7 @@ js/
   emitter.js        tiny publish/subscribe helper
   storage.js        localStorage that can't throw
   leaderboard.js    names and scores, shared board + local fallback
-  looks.js          the 20 looks, and what earns the next one
+  looks.js          the 25 looks, and what earns the next one
   scenery.js        paints a look onto the page
   celebrations.js   which clear animation plays, and when
   game.js           all the rules. Never touches the DOM.
@@ -173,15 +173,21 @@ The events available are `reset`, `place`, `clear`, `bonus`, `levelup`,
 
 ### The look, and what earns it
 
-Twenty **looks**. Each one changes four things at once — the block
-palette, the **shape** of the blocks, the surface they're made of, and the
-background behind them:
+Twenty-five **looks**. Each one changes three things at once — the block
+palette, the surface they're made of, and the background behind them:
 
 | Part | Range |
 |---|---|
 | Palette | seven colours, all different per look |
-| Surface | `gloss` `candy` `gem` `bubble` `matte` `neon` |
+| Surface | `gloss` `candy` `gem` `bubble` `matte` `neon` `prism` `pixel` |
 | Background | three drifting blobs, a haze, one of four motions |
+
+Twenty of them cover the ladder rung for rung. The last five — Aurora,
+Pixel, Carnival, Vapor, Slime — sit past the top of it, because a
+catalogue exactly as long as the ladder wrapped back to Midnight for
+anyone who also cleared the board on the way up: their reward for a
+perfect clear was the look they had started in. They're louder than the
+twenty below on purpose.
 
 **Blocks are always rounded squares** — one radius, set once in
 `styles.css`. Per-look silhouettes were tried and pulled: they fought the
@@ -198,7 +204,7 @@ back for free.
 
 There is **no picker**, deliberately. A look is a reward for progress; a
 dropdown turns it into a settings screen, and then nobody ever sees the
-other nineteen. It used to rotate on the calendar instead — that was
+other twenty-four. It used to rotate on the calendar instead — that was
 worse, because it changed the game while you weren't playing, so you never
 saw it happen.
 
@@ -222,6 +228,13 @@ No CSS. Every colour in `styles.css` reads a custom property, and
 new look sets the same variables, carries a full palette, uses a known
 surface, and **repaints both the blocks and the background** relative to
 its neighbour — a look that's only a nudge fails the suite.
+
+A new **surface** is the one thing that does need CSS: add it to
+`SURFACES` in `looks.js` and write the matching
+`:root[data-surface="…"] .cell.filled::before` rules. The surface is drawn
+as an overlay on top of the block's own colour, so one rule works for
+every palette. A test reads `styles.css` and fails if a listed surface has
+no rules behind it, or if no look ever wears it.
 
 ### Clear animations
 
@@ -537,10 +550,20 @@ level 5", "Already used"). Spent ones stay on screen, crossed out, so you
 can see what you've burned. The tooltip shows on hover, on keyboard focus,
 and for a moment after a tap, because hover doesn't exist on a phone.
 
-They all work from the **Game Over screen** too, where whichever ones you
-have left are offered as a second chance — a wipe or a shuffle can pull
-you out of a dead end, not just a rewind. The rules recompute the verdict
-after every lifeline, so the overlay lifts by itself when one saves you.
+**The Game Over screen offers exactly one of them: Wipe.** It used to
+offer all four, and that was the wrong shape. A lifeline is a decision you
+take with the board still in front of you — spending one is the point of
+having it. Handing the unspent ones back at the end turns them into a
+prompt you accept rather than a risk you took, and a Joker played from the
+death screen is a doubling nobody gambled anything for. Wipe keeps the
+exception because sweeping the board *is* the second chance: there is
+nothing left to decide about it, and it scores nothing either way.
+
+That's one flag, `rescue: true`, on the wipe entry in `LIFELINES` — the
+rules refuse everything else once `over` is set, and the overlay row only
+builds buttons for lifelines carrying the flag. The verdict is recomputed
+after every lifeline, so the overlay lifts by itself when the wipe saves
+you.
 
 Adding a fifth lifeline means adding an entry to `LIFELINES` in
 `config.js` and a branch in `useLifeline()`; the buttons, the tooltips,

@@ -185,17 +185,19 @@ export class Game extends Emitter {
     if (refilled) this._refillTray();
     this.emit("tray", { tray: this.tray, refilled });
 
-    // a fresh move means Rewind has something to take back again
+    if (this.isGameOver()) this.over = true;
+
+    // a fresh move means Rewind has something to take back again — and a
+    // move that ended the game withdraws every lifeline but the rescue,
+    // so this has to be settled before the Game Over screen reads it
     this._emitLifelines();
 
-    if (this.isGameOver()) {
-      this.over = true;
+    if (this.over) {
       this.emit("gameover", {
         score: this.score,
         best: this.best,
         isNewBest: this.score >= this.best && this.score > 0,
         level: this.level,
-        canUndo: this.canUndo(),
       });
     }
     return true;
@@ -393,6 +395,12 @@ export class Game extends Emitter {
 
     if (base.active) return no(`Running — ×${this.jokerBoost} until level ${spec.maxLevel + 1}`);
     if (base.used) return no("Already used");
+
+    // A finished game withdraws everything but the rescue. Offering the
+    // rest at the end asks you to take them rather than to spend them —
+    // see the note on `rescue` in config.js.
+    if (this.over && !spec.rescue) return no("Too late — the game is over");
+
     if (spec.maxLevel != null && this.level > spec.maxLevel) {
       return no(`Gone after level ${spec.maxLevel}`);
     }
@@ -596,7 +604,6 @@ export class Game extends Emitter {
         best: this.best,
         isNewBest: this.score >= this.best && this.score > 0,
         level: this.level,
-        canUndo: this.canUndo(),
       });
     }
 

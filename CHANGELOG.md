@@ -8,6 +8,66 @@ bump that, add an entry here, and bump `CACHE_VERSION` in
 
 ---
 
+## 0.4.2 — 2026-07-29
+
+A patch. One rule taken back, and five more looks to reach.
+
+### Changed
+
+- **The Game Over screen offers one lifeline now, not four.** It used to
+  lay out everything you hadn't spent — rewind, shuffle, wipe, joker — as
+  a second chance, and that was the wrong shape for what a lifeline is.
+  Spending one is meant to be a decision you take with the board still in
+  front of you: which one, and when, against a position you can see.
+  Re-offering the unspent ones at the end turns them into a prompt you
+  accept rather than a risk you took, and a Joker played from the death
+  screen is a doubling nobody gambled anything for — the downside it's
+  supposed to buy has already happened.
+
+  **Wipe keeps the exception**, because sweeping the board *is* the second
+  chance. There's nothing left to decide about it — no timing, no
+  position, no trade — and it scores nothing either way, so taking it
+  costs you the lifeline and gains you a clear board. That's a rescue.
+  The rest are choices, and a choice you make after the game has ended
+  isn't one.
+
+  It's one flag rather than a special case: `rescue: true` on the wipe
+  entry in `LIFELINES`. The rules refuse anything without it once the game
+  is over (`"Too late — the game is over"`), and the overlay row only
+  builds buttons for lifelines that carry it. One consequence worth
+  naming: the lifeline event now fires *before* `gameover` rather than
+  after, or the screen would render from a verdict taken a moment too
+  early and offer a rewind the rules had already withdrawn.
+
+### Added
+
+- **Five more looks, past the top of the ladder.** There were twenty looks
+  and twenty levels, which sounds tidy and wasn't: the cycle advances on
+  board clears too, so anyone playing well enough to empty the board
+  wrapped back round to Midnight while still climbing — the reward for a
+  perfect clear was the look they'd started the game in.
+
+  **Aurora** (ribbons of light over the ice), **Pixel** (chunky sprites,
+  straight out of 1983), **Carnival** (big top stripes and toffee apples),
+  **Vapor** (sunset grid, cassette pink) and **Slime** (glow-in-the-dark
+  ooze). They're louder than the twenty below them on purpose — by the
+  time the cycle gets this far you've earned something odd, and a
+  twenty-first tasteful dark blue would read as the game having run out.
+
+- **Two new block surfaces**, because three of those looks needed a
+  material the existing six didn't have. `prism` is holographic foil — the
+  highlight splits into a rainbow across the block. `pixel` drops the
+  gradients entirely for a hard bevel, lit top-left and dark
+  bottom-right, and pulls the corner radius down to 2px; the bevel is the
+  whole joke and rounded corners ate it.
+
+  A surface is still just an overlay on top of the block's own colour, so
+  both work with any palette. A new test reads `styles.css` and fails if a
+  surface listed in `looks.js` has no rules behind it, or if no look ever
+  wears it — the one part of adding a look that isn't pure data.
+
+---
+
 ## 0.4.1 — 2026-07-27
 
 Three changes from playing 0.4.0. Still only about which pieces you get —
